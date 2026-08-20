@@ -40,7 +40,7 @@ local lp = LocalPlayer
 
 local Window = Fluent:CreateWindow({
 Title = "Reaper Hub",
-SubTitle = "test",
+SubTitle = "Violence District",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -74,9 +74,7 @@ local ESP_Config = {
     }
 }
 
---=========================
--- 🖱️ UI ELEMENTS (Dropdown & Toggles)
---=========================
+
 local RoleDropdown = Tabs.ESP:AddDropdown("ESPRoles", {
     Title = "Select Roles to Display",
     Values = {"Survivors", "Killer", "Spectator"},
@@ -100,9 +98,7 @@ Tabs.ESP:AddToggle("TracerToggle", {Title = "Enable Tracers (Line)", Default = f
     ESP_Config.ShowTracer = v
 end)
 
---=========================
--- 🛠️ MASTER ESP ENGINE (Drawing 3D Upright Box, Chams, Tracer)
---=========================
+
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
     local teamLower = team:lower()
@@ -228,15 +224,6 @@ Players.PlayerAdded:Connect(CreateESP)
 
 
 
-
-
-
-
-
---=========================
--- ⚙ SETTINGS TAB
---=========================
-
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:SetLibrary(Fluent)
 
@@ -246,21 +233,17 @@ SaveManager:SetFolder("ReaperHub/configs")
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
-SaveManager:LoadAutoloadConfig() -- 🔥 ตัวนี้แหละ
+SaveManager:LoadAutoloadConfig()
 
 Window:SelectTab(1)
--- Lib Toggle
---=========================
--- TOGGLE BUTTON
---=========================
+
+
 if game.CoreGui:FindFirstChild("ToggleUI") then
     game.CoreGui.ToggleUI:Destroy()
 end
 
 
---=========================
--- GUI
---=========================
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "ToggleUI"
 gui.ResetOnSpawn = false
@@ -268,9 +251,7 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999999
 gui.Parent = game.CoreGui
 
---=========================
--- BORDER
---=========================
+
 local border = Instance.new("Frame")
 border.Parent = gui
 border.Size = UDim2.new(0,0,0,0)
@@ -282,9 +263,7 @@ local borderCorner = Instance.new("UICorner")
 borderCorner.CornerRadius = UDim.new(0,14)
 borderCorner.Parent = border
 
---=========================
--- BUTTON
---=========================
+
 local button = Instance.new("ImageButton")
 button.Parent = gui
 button.Size = UDim2.new(0,60,0,60)
@@ -299,18 +278,13 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0,12)
 corner.Parent = button
 
---=========================
--- IMAGE
---=========================
 local imgOn = "rbxassetid://86279908104891"
 local imgOff = "rbxassetid://86279908104891"
 
 button.Image = imgOn
 button.ScaleType = Enum.ScaleType.Fit
 
---=========================
--- AUTO ALIGN
---=========================
+
 local function UpdateBorder()
 
     local offset = (border.Size.X.Offset - button.Size.X.Offset) / 2
@@ -325,9 +299,7 @@ end
 
 UpdateBorder()
 
---=========================
--- DRAG SYSTEM
---=========================
+
 local dragging = false
 local dragStart, startPos
 
@@ -368,9 +340,7 @@ UIS.InputEnded:Connect(function(input)
     end
 end)
 
---=========================
--- TOGGLE
---=========================
+
 local isOpen = true
 
 button.MouseButton1Click:Connect(function()
@@ -386,8 +356,6 @@ button.MouseButton1Click:Connect(function()
 end)
 
 
-
-
 -- Load Success 
-task.wait(2)
+task.wait(0.5)
 print("Reaper Hub Loaded")
