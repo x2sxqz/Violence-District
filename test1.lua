@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 7
+-- 🔥 Lib Load Screen Reaper Hub 8
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -101,7 +101,7 @@ Tabs.ESP:AddToggle("TracerToggle", {Title = "Enable Tracers (Line)", Default = f
 end)
 
 --=========================
--- 🛠️ MASTER ESP ENGINE (3-IN-1: Chams, 3D Box, Tracer)
+-- 🛠️ MASTER ESP ENGINE (Drawing 3D Upright Box, Chams, Tracer)
 --=========================
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
@@ -114,15 +114,16 @@ end
 local function CreateESP(player)
     if player == LocalPlayer then return end
 
-    -- 1. 3D Wireframe Box (ใช้ SelectionBox เพื่อให้เป็นกรอบเส้นมองทะลุได้)
-    local Box = Instance.new("SelectionBox")
-    Box.Name = "R_SelectionBox"
-    Box.Adornee = nil
-    Box.LineThickness = 0.05
-    Box.Transparency = 0 -- ความชัดของเส้นกรอบ
-    Box.Parent = CoreGui
+    -- สร้างเส้น 12 เส้นสำหรับกล่อง 3D (Drawing API)
+    local Lines = {}
+    for i = 1, 12 do
+        Lines[i] = Drawing.new("Line")
+        Lines[i].Thickness = 1.5
+        Lines[i].Transparency = 1
+        Lines[i].Visible = false
+    end
 
-    -- 2. 2D Tracer (เส้นลาก)
+    -- เส้น Tracer
     local Tracer = Drawing.new("Line")
     Tracer.Visible = false
     Tracer.Thickness = 1.5
@@ -132,22 +133,23 @@ local function CreateESP(player)
         local hrp = character:WaitForChild("HumanoidRootPart", 10)
         local hum = character:WaitForChild("Humanoid", 10)
         
-        -- 3. Chams (Highlight - ปรับให้ Fill ใสเพื่อให้มองทะลุเห็นตัวละคร)
+        -- Chams (Highlight)
         local highlight = character:FindFirstChild("R_Highlight") or Instance.new("Highlight")
         highlight.Name = "R_Highlight"
         highlight.Parent = character
         highlight.Enabled = false
-        highlight.FillTransparency = 0.6 -- ปรับความใสของ Chams (0=ทึบ, 1=ใส)
-        highlight.OutlineTransparency = 0
+        highlight.FillTransparency = 0.6
 
         local connection
         connection = RunService.RenderStepped:Connect(function()
             if not character or not character.Parent or not hrp.Parent or hum.Health <= 0 then
-                Box.Adornee = nil
+                for _, l in pairs(Lines) do l.Visible = false end
                 Tracer.Visible = false
                 highlight.Enabled = false
                 if not player or not player.Parent then
-                    Box:Destroy(); Tracer:Remove(); connection:Disconnect()
+                    for _, l in pairs(Lines) do l:Remove() end
+                    Tracer:Remove()
+                    connection:Disconnect()
                 end
                 return
             end
@@ -158,19 +160,46 @@ local function CreateESP(player)
             local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255, 255, 255)
 
             if onScreen and isRoleEnabled then
-                -- อัปเดต Highlight (Chams)
+                -- 1. Chams
                 highlight.Enabled = ESP_Config.ShowHighlight
                 highlight.FillColor = roleColor
 
-                -- อัปเดต 3D Box (SelectionBox)
+                -- 2. 3D Upright Box (Drawing Lines)
                 if ESP_Config.ShowBox then
-                    Box.Adornee = character
-                    Box.Color3 = roleColor
-                else 
-                    Box.Adornee = nil 
+                    local size = Vector3.new(2, 3, 2) -- ขนาดกล่อง (กว้าง, สูง, ลึก)
+                    local center = hrp.Position
+                    
+                    -- จุดยอดทั้ง 8 ของกล่อง (แบบตั้งตรง ไม่หมุนตามตัว)
+                    local vertices = {
+                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X,  size.Y, -size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new( size.X,  size.Y, -size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new( size.X,  size.Y,  size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X,  size.Y,  size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X, -size.Y, -size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new( size.X, -size.Y, -size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new( size.X, -size.Y,  size.Z)),
+                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X, -size.Y,  size.Z))
+                    }
+
+                    local connections = {
+                        {1,2}, {2,3}, {3,4}, {4,1}, -- บน
+                        {5,6}, {6,7}, {7,8}, {8,5}, -- ล่าง
+                        {1,5}, {2,6}, {3,7}, {4,8}  -- เสาเชื่อม
+                    }
+
+                    for i, conn in ipairs(connections) do
+                        local p1 = vertices[conn[1]]
+                        local p2 = vertices[conn[2]]
+                        Lines[i].Visible = true
+                        Lines[i].From = Vector2.new(p1.X, p1.Y)
+                        Lines[i].To = Vector2.new(p2.X, p2.Y)
+                        Lines[i].Color = roleColor
+                    end
+                else
+                    for _, l in pairs(Lines) do l.Visible = false end
                 end
 
-                -- อัปเดต Tracer (Line)
+                -- 3. Tracer
                 if ESP_Config.ShowTracer then
                     Tracer.Visible = true
                     Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
@@ -180,7 +209,7 @@ local function CreateESP(player)
                     Tracer.Visible = false 
                 end
             else
-                Box.Adornee = nil
+                for _, l in pairs(Lines) do l.Visible = false end
                 Tracer.Visible = false
                 highlight.Enabled = false
             end
@@ -191,9 +220,10 @@ local function CreateESP(player)
     if player.Character then task.spawn(ApplyESP, player.Character) end
 end
 
--- เริ่มระบบ ESP
+-- รันระบบ ESP
 for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
 Players.PlayerAdded:Connect(CreateESP)
+
 
 
 
