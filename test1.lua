@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 4
+-- 🔥 Lib Load Screen Reaper Hub 5
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -92,7 +92,7 @@ Tabs.ESP:AddToggle("HighlightToggle", {Title = "Enable Highlight (Chams)", Defau
     ESP_Config.ShowHighlight = v
 end)
 
-Tabs.ESP:AddToggle("BoxToggle", {Title = "Enable ESP Box (2D Line)", Default = false}):OnChanged(function(v)
+Tabs.ESP:AddToggle("BoxToggle", {Title = "Enable ESP Box (3D Wireframe)", Default = false}):OnChanged(function(v)
     ESP_Config.ShowBox = v
 end)
 
@@ -101,7 +101,7 @@ Tabs.ESP:AddToggle("TracerToggle", {Title = "Enable Tracers (Line)", Default = f
 end)
 
 --=========================
--- 🛠️ ESP ENGINE (2D BOX, TRACER, CHAMS)
+-- 🛠️ MASTER ESP ENGINE (3-IN-1)
 --=========================
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
@@ -114,12 +114,17 @@ end
 local function CreateESP(player)
     if player == LocalPlayer then return end
 
-    local Box = Drawing.new("Square")
-    Box.Visible = false
-    Box.Thickness = 1.5
-    Box.Filled = false -- เป็นกรอบเส้น ไม่บังตัวละคร
-    Box.Transparency = 1
+    -- 1. สร้าง 3D Box (แบบกรอบเส้นไม่บังตัว)
+    local Box = Instance.new("BoxHandleAdornment")
+    Box.Name = "R_3DBox"
+    Box.AlwaysOnTop = true
+    Box.ZIndex = 10
+    Box.Transparency = 0.2
+    Box.Filled = false -- สำคัญ: เป็นแค่กรอบเส้น
+    Box.Thickness = 2
+    Box.Parent = CoreGui
 
+    -- 2. สร้าง 2D Tracer (ใช้ Drawing Lib เพื่อความเสถียร)
     local Tracer = Drawing.new("Line")
     Tracer.Visible = false
     Tracer.Thickness = 1.5
@@ -129,6 +134,7 @@ local function CreateESP(player)
         local hrp = character:WaitForChild("HumanoidRootPart", 10)
         local hum = character:WaitForChild("Humanoid", 10)
         
+        -- 3. Chams (Highlight)
         local highlight = character:FindFirstChild("R_Highlight") or Instance.new("Highlight")
         highlight.Name = "R_Highlight"
         highlight.Parent = character
@@ -137,9 +143,11 @@ local function CreateESP(player)
         local connection
         connection = RunService.RenderStepped:Connect(function()
             if not character or not character.Parent or not hrp.Parent or hum.Health <= 0 then
-                Box.Visible = false; Tracer.Visible = false; highlight.Enabled = false
+                Box.Adornee = nil
+                Tracer.Visible = false
+                highlight.Enabled = false
                 if not player or not player.Parent then
-                    Box:Remove(); Tracer:Remove(); connection:Disconnect()
+                    Box:Destroy(); Tracer:Remove(); connection:Disconnect()
                 end
                 return
             end
@@ -150,31 +158,28 @@ local function CreateESP(player)
             local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255, 255, 255)
 
             if onScreen and isRoleEnabled then
-                -- Chams
-                if ESP_Config.ShowHighlight then
-                    highlight.Enabled = true
-                    highlight.FillColor = roleColor
-                else highlight.Enabled = false end
+                -- อัปเดต Highlight (Chams)
+                highlight.Enabled = ESP_Config.ShowHighlight
+                highlight.FillColor = roleColor
 
-                -- 2D Box (กรอบเส้น)
+                -- อัปเดต 3D Box (Wireframe)
                 if ESP_Config.ShowBox then
-                    local sizeX = 2200 / screenPos.Z
-                    local sizeY = 3800 / screenPos.Z
-                    Box.Visible = true
-                    Box.Size = Vector2.new(sizeX, sizeY)
-                    Box.Position = Vector2.new(screenPos.X - sizeX / 2, screenPos.Y - sizeY / 2)
-                    Box.Color = roleColor
-                else Box.Visible = false end
+                    Box.Adornee = character
+                    Box.Color3 = roleColor
+                    Box.Size = character:GetExtentsSize()
+                else Box.Adornee = nil end
 
-                -- 2D Tracer (เส้นจากล่างจอ)
+                -- อัปเดต Tracer (Line)
                 if ESP_Config.ShowTracer then
                     Tracer.Visible = true
                     Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                    Tracer.To = Vector2.new(screenPos.X, screenPos.Y + (3500 / screenPos.Z) / 2)
+                    Tracer.To = Vector2.new(screenPos.X, screenPos.Y)
                     Tracer.Color = roleColor
                 else Tracer.Visible = false end
             else
-                Box.Visible = false; Tracer.Visible = false; highlight.Enabled = false
+                Box.Adornee = nil
+                Tracer.Visible = false
+                highlight.Enabled = false
             end
         end)
     end
@@ -183,9 +188,10 @@ local function CreateESP(player)
     if player.Character then task.spawn(ApplyESP, player.Character) end
 end
 
--- สั่งรันระบบ
+-- สั่งเริ่มงาน
 for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
 Players.PlayerAdded:Connect(CreateESP)
+
 
 
 
@@ -348,5 +354,5 @@ end)
 
 
 -- Load Success 
-task.wait(1)
+task.wait(2)
 print("Reaper Hub Loaded")
