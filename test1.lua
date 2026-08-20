@@ -1,14 +1,12 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 7
+-- 🔥 Lib Load Screen Reaper Hub 2
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/InterfaceManager.lua"))()
 
---=========================
--- 🔥 SERVICES
---=========================
+
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -40,7 +38,6 @@ local LP = LocalPlayer
 local Camera = workspace.CurrentCamera
 local lp = LocalPlayer
 
--- WINDOW
 local Window = Fluent:CreateWindow({
 Title = "Reaper Hub",
 SubTitle = "test",
@@ -60,8 +57,17 @@ ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
 Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
+
+--esp
+--=========================
+-- ⚙️ ESP CONFIGURATION
+--=========================
 local ESP_Config = {
-    EnabledRoles = {},
+    EnabledRoles = {
+        ["Survivors"] = false,
+        ["Killer"] = false,
+        ["Spectator"] = false
+    },
     ShowBox = false,
     ShowHighlight = false,
     ShowTracer = false,
@@ -82,27 +88,44 @@ local RoleDropdown = Tabs.ESP:AddDropdown("ESPRoles", {
 })
 
 RoleDropdown:OnChanged(function(Value)
-    ESP_Config.EnabledRoles = Value
+    -- เคลียร์ค่าเก่าก่อนอัปเดต
+    for k, _ in pairs(ESP_Config.EnabledRoles) do
+        ESP_Config.EnabledRoles[k] = Value[k] or false
+    end
 end)
 
--- แยก Toggle ชัดเจน 3 อย่าง
 Tabs.ESP:AddToggle("HighlightToggle", {Title = "Enable Highlight (Chams)", Default = false}):OnChanged(function(v) ESP_Config.ShowHighlight = v end)
 Tabs.ESP:AddToggle("BoxToggle", {Title = "Enable ESP Box", Default = false}):OnChanged(function(v) ESP_Config.ShowBox = v end)
 Tabs.ESP:AddToggle("TracerToggle", {Title = "Enable Tracers (Line)", Default = false}):OnChanged(function(v) ESP_Config.ShowTracer = v end)
 
 --=========================
--- 🛠️ ESP MASTER SYSTEM
+-- 🛠️ IMPROVED ROLE SYSTEM
 --=========================
 local function GetRole(player)
-    local team = player.Team and player.Team.Name or "Spectator"
-    if string.find(team:lower(), "killer") or string.find(team:lower(), "murder") then
+    -- ระบบตรวจจับทีม (รองรับหลายรูปแบบเกม)
+    local team = player.Team and player.Team.Name or "None"
+    local teamLower = team:lower()
+    
+    if string.find(teamLower, "killer") or string.find(teamLower, "murder") or string.find(teamLower, "beast") then
         return "Killer"
-    elseif string.find(team:lower(), "survivor") or string.find(team:lower(), "innocent") then
+    elseif string.find(teamLower, "survivor") or string.find(teamLower, "innocent") or string.find(teamLower, "human") then
         return "Survivors"
     end
+    
+    -- หากไม่มีทีม ให้เช็คจาก Attribute (เผื่อบางเกมใช้ระบบนี้)
+    local attrRole = player:GetAttribute("Role") or player:GetAttribute("Team")
+    if attrRole then
+        local attrLower = tostring(attrRole):lower()
+        if string.find(attrLower, "killer") then return "Killer"
+        elseif string.find(attrLower, "survivor") then return "Survivors" end
+    end
+
     return "Spectator"
 end
 
+--=========================
+-- 🛠️ STABLE ESP MASTER
+--=========================
 local function CreateESP(player)
     if player == LocalPlayer then return end
 
@@ -110,30 +133,33 @@ local function CreateESP(player)
         local hrp = character:WaitForChild("HumanoidRootPart", 10)
         if not hrp then return end
 
-        -- 1. Highlight Object (สำหรับ Chams/มองทะลุ)
+        -- สร้าง Highlight (Chams)
         local highlight = Instance.new("Highlight")
         highlight.Name = "R_Highlight"
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 1 -- ปิด Outline ของ Highlight เพื่อไปใช้ SelectionBox แทน
+        highlight.OutlineTransparency = 0
+        highlight.Enabled = false -- ปิดไว้ก่อน
         highlight.Parent = character
 
-        -- 2. SelectionBox (สำหรับ ESP Box ที่คมชัดกว่า)
+        -- สร้าง SelectionBox (Box)
         local sBox = Instance.new("SelectionBox")
         sBox.Name = "R_Box"
         sBox.Adornee = character
         sBox.LineThickness = 0.05
         sBox.AlwaysOnTop = true
         sBox.SurfaceTransparency = 1
+        sBox.Visible = false -- ปิดไว้ก่อน
         sBox.Parent = character
 
-        -- 3. Tracer Line
+        -- สร้าง Tracer (Line)
         local line = Instance.new("LineHandleAdornment")
         line.Name = "R_Tracer"
         line.Length = 0
         line.Thickness = 2
         line.AlwaysOnTop = true
         line.ZIndex = 10
+        line.Visible = false -- ปิดไว้ก่อน
         line.Parent = CoreGui
 
         local connection
@@ -147,19 +173,30 @@ local function CreateESP(player)
             end
 
             local role = GetRole(player)
-            local isEnabled = ESP_Config.EnabledRoles[role]
-            local roleColor = ESP_Config.Roles[role]
+            local isRoleEnabled = ESP_Config.EnabledRoles[role]
+            local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255,255,255)
 
-            -- Update Highlight
-            highlight.Enabled = isEnabled and ESP_Config.ShowHighlight
-            highlight.FillColor = roleColor
+            -- แสดงผลเฉพาะบทบาทที่ถูกติ๊กใน Dropdown เท่านั้น
+            
+            -- 1. Highlight
+            if isRoleEnabled and ESP_Config.ShowHighlight then
+                highlight.Enabled = true
+                highlight.FillColor = roleColor
+                highlight.OutlineColor = roleColor
+            else
+                highlight.Enabled = false
+            end
 
-            -- Update Box
-            sBox.Visible = isEnabled and ESP_Config.ShowBox
-            sBox.Color3 = roleColor
+            -- 2. Box
+            if isRoleEnabled and ESP_Config.ShowBox then
+                sBox.Visible = true
+                sBox.Color3 = roleColor
+            else
+                sBox.Visible = false
+            end
 
-            -- Update Tracer
-            if isEnabled and ESP_Config.ShowTracer then
+            -- 3. Tracer
+            if isRoleEnabled and ESP_Config.ShowTracer then
                 local _, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                 if onScreen then
                     line.Visible = true
@@ -178,9 +215,10 @@ local function CreateESP(player)
     if player.Character then task.spawn(ApplyESP, player.Character) end
 end
 
--- Start
+-- Start ESP
 for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
 Players.PlayerAdded:Connect(CreateESP)
+
 
 
 --=========================
