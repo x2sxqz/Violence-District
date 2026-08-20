@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 5
+-- 🔥 Lib Load Screen Reaper Hub 6
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -114,17 +114,15 @@ end
 local function CreateESP(player)
     if player == LocalPlayer then return end
 
-    -- 1. สร้าง 3D Box (แบบกรอบเส้นไม่บังตัว)
-    local Box = Instance.new("BoxHandleAdornment")
-    Box.Name = "R_3DBox"
-    Box.AlwaysOnTop = true
-    Box.ZIndex = 10
-    Box.Transparency = 0.2
-    Box.Filled = false -- สำคัญ: เป็นแค่กรอบเส้น
-    Box.Thickness = 2
+    -- 1. 3D Wireframe Box (ใช้ SelectionBox เพื่อไม่ให้บังตัว)
+    local Box = Instance.new("SelectionBox")
+    Box.Name = "R_SelectionBox"
+    Box.Adornee = nil
+    Box.LineThickness = 0.05
+    Box.SurfaceTransparency = 1 -- โปร่งใส 100% เห็นแต่เส้น
     Box.Parent = CoreGui
 
-    -- 2. สร้าง 2D Tracer (ใช้ Drawing Lib เพื่อความเสถียร)
+    -- 2. 2D Tracer (Drawing Line)
     local Tracer = Drawing.new("Line")
     Tracer.Visible = false
     Tracer.Thickness = 1.5
@@ -158,18 +156,18 @@ local function CreateESP(player)
             local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255, 255, 255)
 
             if onScreen and isRoleEnabled then
-                -- อัปเดต Highlight (Chams)
+                -- Chams Update
                 highlight.Enabled = ESP_Config.ShowHighlight
                 highlight.FillColor = roleColor
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 
-                -- อัปเดต 3D Box (Wireframe)
+                -- 3D Box Update
                 if ESP_Config.ShowBox then
                     Box.Adornee = character
                     Box.Color3 = roleColor
-                    Box.Size = character:GetExtentsSize()
                 else Box.Adornee = nil end
 
-                -- อัปเดต Tracer (Line)
+                -- Tracer Update
                 if ESP_Config.ShowTracer then
                     Tracer.Visible = true
                     Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
@@ -188,9 +186,9 @@ local function CreateESP(player)
     if player.Character then task.spawn(ApplyESP, player.Character) end
 end
 
--- สั่งเริ่มงาน
 for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
 Players.PlayerAdded:Connect(CreateESP)
+
 
 
 
