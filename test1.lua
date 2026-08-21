@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 12
+-- 🔥 Lib Load Screen Reaper Hub 13
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -56,6 +56,7 @@ local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
 Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
+Teleport = Window:AddTab({ Title = "Teleport", Icon = "menu" }),
 Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -445,6 +446,102 @@ Tabs.ESP:AddToggle("DistanceESP", {
     Title = "ESP Distance",
     Default = false,
     Callback = function(v) _G.DistanceESPEnabled = v end
+})
+
+--teleport
+local selectedPlayer = nil
+local teleportEnabled = false
+local spectating = false
+
+-- ฟังก์ชันดึงรายชื่อผู้เล่น (ยกเว้นตัวเอง)
+local function getList()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            table.insert(list, p.Name)
+        end
+    end
+    return list
+end
+
+-- สร้าง Dropdown สำหรับเลือกผู้เล่น
+local Dropdown = Tabs.Teleport:AddDropdown("PlayerDropdown", {
+    Title = "Select Player",
+    Values = getList(),
+    Multi = false,
+    Default = nil
+})
+
+-- อัปเดตตัวแปรเมื่อมีการเลือกคนใน Dropdown
+Dropdown:OnChanged(function(value)
+    if value then
+        selectedPlayer = Players:FindFirstChild(value)
+        
+        -- ถ้ากำลัง Spectate อยู่ ให้ย้ายกล้องไปหาคนใหม่ทันที
+        if spectating and selectedPlayer and selectedPlayer.Character then
+            local hum = selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum then Camera.CameraSubject = hum end
+        end
+    end
+end)
+
+-- ปุ่มรีเฟรชรายชื่อ
+Tabs.Teleport:AddButton({
+    Title = "Refresh Players",
+    Callback = function()
+        Dropdown:SetValues(getList())
+    end
+})
+
+Tabs.Teleport:AddToggle("tp", {
+    Title = "Teleport",
+    Default = false,
+    Callback = function(state)
+        teleportEnabled = state
+
+        if state then
+            task.spawn(function()
+                while teleportEnabled do
+                    if selectedPlayer and selectedPlayer.Character then
+                        local char = LP.Character
+                        local target = selectedPlayer.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        local tRoot = target and target:FindFirstChild("HumanoidRootPart")
+
+                        if root and tRoot then
+                            -- ใช้ Tween เพื่อเคลื่อนที่ไปด้านบนหัวเป้าหมายเล็กน้อย
+                            TweenService:Create(
+                                root,
+                                TweenInfo.new(0.4, Enum.EasingStyle.Linear),
+                                {CFrame = tRoot.CFrame + Vector3.new(0, 3, 0)}
+                            ):Play()
+                        end
+                    end
+                    task.wait(0.5) -- หน่วงเวลาเพื่อลดภาระเครื่อง
+                end
+            end)
+        end
+    end
+})
+
+Tabs.Teleport:AddToggle("spec", {
+    Title = "Spectate Player",
+    Default = false,
+    Callback = function(state)
+        spectating = state
+
+        if state then
+            -- ส่องเป้าหมาย
+            if selectedPlayer and selectedPlayer.Character then
+                local hum = selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then Camera.CameraSubject = hum end
+            end
+        else
+            -- กลับมาที่ตัวเรา
+            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then Camera.CameraSubject = hum end
+        end
+    end
 })
 
 ---------------
