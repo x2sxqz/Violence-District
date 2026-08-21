@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 16
+-- 🔥 Lib Load Screen Reaper Hub 17
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -56,6 +56,7 @@ local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
 Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
+Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" }),
 Teleport = Window:AddTab({ Title = "Teleport", Icon = "menu" }),
 Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
@@ -475,6 +476,137 @@ Tabs.ESP:AddToggle("DistanceESP", {
     Default = false,
     Callback = function(v) _G.DistanceESPEnabled = v end
 })
+
+-- Object
+--=========================
+-- 🔥 Optimized Object ESP (Event-Based)
+--=========================
+local Object_Config = {
+    Generator = false,
+    Hook = false,
+    Gate = false
+}
+
+local Object_Highlights = {}
+
+local OBJ_COLORS = {
+    Generator = Color3.fromRGB(255, 255, 0),
+    Hook = Color3.fromRGB(170, 0, 255),
+    Gate = Color3.fromRGB(0, 170, 255)
+}
+
+local OBJ_MAPPING = {
+    ["generator"] = "Generator", ["generators"] = "Generator", 
+    ["new generator"] = "Generator", ["new generators"] = "Generator",
+    ["hook"] = "Hook", ["hooks"] = "Hook",
+    ["gate"] = "Gate", ["gates"] = "Gate"
+}
+
+-- ฟังก์ชันจัดการ Highlight รายชิ้น
+local function ManageESP(obj)
+    local typeName = OBJ_MAPPING[string.lower(obj.Name)]
+    if not typeName then return end
+
+    local isEnabled = Object_Config[typeName]
+
+    if isEnabled then
+        -- ถ้าเปิดอยู่และยังไม่มี Highlight ให้สร้าง
+        if not Object_Highlights[obj] then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "Reaper_ObjESP"
+            highlight.Adornee = obj
+            highlight.FillColor = OBJ_COLORS[typeName]
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.Parent = obj
+            Object_Highlights[obj] = highlight
+        else
+            Object_Highlights[obj].Enabled = true
+        end
+    else
+        -- ถ้าปิดอยู่ แต่มี Highlight ให้ซ่อนไว้
+        if Object_Highlights[obj] then
+            Object_Highlights[obj].Enabled = false
+        end
+    end
+end
+
+-- ฟังก์ชันสแกนรอบเดียว (เรียกใช้เฉพาะตอนเปิด Toggle)
+local function InitialScan(typeName)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        local mappedType = OBJ_MAPPING[string.lower(obj.Name)]
+        if mappedType == typeName then
+            ManageESP(obj)
+        end
+    end
+end
+
+--=========================
+-- 🔥 UI Setup (Object Tab)
+--=========================
+-- แก้ไข Typo จาก AddTap เป็น AddTab ให้แล้ว
+Tabs.Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" })
+
+Tabs.Object:AddToggle("GenESP", {
+    Title = "ESP Generator",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Generator = v
+        if v then InitialScan("Generator") else
+            for obj, hl in pairs(Object_Highlights) do
+                if OBJ_MAPPING[string.lower(obj.Name)] == "Generator" then hl.Enabled = false end
+            end
+        end
+    end
+})
+
+Tabs.Object:AddToggle("HookESP", {
+    Title = "ESP Hook",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Hook = v
+        if v then InitialScan("Hook") else
+            for obj, hl in pairs(Object_Highlights) do
+                if OBJ_MAPPING[string.lower(obj.Name)] == "Hook" then hl.Enabled = false end
+            end
+        end
+    end
+})
+
+Tabs.Object:AddToggle("GateESP", {
+    Title = "ESP Gate",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Gate = v
+        if v then InitialScan("Gate") else
+            for obj, hl in pairs(Object_Highlights) do
+                if OBJ_MAPPING[string.lower(obj.Name)] == "Gate" then hl.Enabled = false end
+            end
+        end
+    end
+})
+
+--=========================
+-- 🔥 Event Listeners (ไม่ต้องใช้ While Loop)
+--=========================
+workspace.DescendantAdded:Connect(function(obj)
+    -- ตรวจสอบเฉพาะตอนที่มี Object ใหม่เกิด
+    local typeName = OBJ_MAPPING[string.lower(obj.Name)]
+    if typeName and Object_Config[typeName] then
+        task.wait(0.1) -- รอให้ Object โหลดคุณสมบัติเสร็จ
+        ManageESP(obj)
+    end
+end)
+
+-- ล้าง Cache เมื่อ Object ถูกลบ
+workspace.DescendantRemoving:Connect(function(obj)
+    if Object_Highlights[obj] then
+        Object_Highlights[obj] = nil
+    end
+end)
+
+
 
 --teleport
 local selectedPlayer = nil
