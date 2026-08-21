@@ -161,7 +161,7 @@ RoleDropdown:OnChanged(function(Value)
     ESP_Config.EnabledRoles = Value
 end)
 
-Tabs.ESP:AddToggle("HighlightToggle", {Title = "Enable Highlight", Default = false}):OnChanged(function(v)
+Tabs.ESP:AddToggle("HighlightToggle", {Title = "ESP Highlight", Default = false}):OnChanged(function(v)
     ESP_Config.ShowHighlight = v
 end)
 
