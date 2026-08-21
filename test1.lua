@@ -545,9 +545,6 @@ end
 --=========================
 -- 🔥 UI Setup (Object Tab)
 --=========================
--- แก้ไข Typo จาก AddTap เป็น AddTab ให้แล้ว
-Tabs.Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" })
-
 Tabs.Object:AddToggle("GenESP", {
     Title = "ESP Generator",
     Default = false,
