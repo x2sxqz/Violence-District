@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 17
+-- 🔥 Lib Load Screen Reaper Hub 18
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -234,7 +234,7 @@ Tabs.ESP:AddToggle("TracerToggle", {Title = "ESP Line", Default = false}):OnChan
 end)
 
 -- =========================
--- 🔥 Fixed ESP Logic (Box, Tracer, Highlight) - Version 2.1
+-- 🔥 Optimized Player ESP (Highlight, Box, Line)
 -- =========================
 
 local function GetRole(player)
@@ -287,26 +287,24 @@ local function CreateDrawingESP(player)
 
             RefreshDrawing()
             
-            local highlight = character:FindFirstChild("R_Highlight") or Instance.new("Highlight")
-            highlight.Name = "R_Highlight"
-            highlight.Parent = character
-            highlight.FillTransparency = 0.6
-            highlight.OutlineTransparency = 0
+            -- ฟังก์ชันจัดการ Highlight แบบเสถียร
+            local function GetHighlight()
+                local hl = character:FindFirstChild("R_Highlight")
+                if not hl then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "R_Highlight"
+                    hl.Parent = character
+                end
+                return hl
+            end
 
             local connection
             connection = RunService.RenderStepped:Connect(function()
-                -- ตรวจสอบว่าผู้เล่นหรือ Character ยังอยู่ไหม
-                if not player or not player.Parent or not character or not character.Parent then
+                if not player or not player.Parent or not character or not character.Parent or not hrp.Parent then
                     RemoveDrawing()
-                    if highlight then highlight:Destroy() end
+                    local oldHl = character:FindFirstChild("R_Highlight")
+                    if oldHl then oldHl:Destroy() end
                     connection:Disconnect()
-                    return
-                end
-
-                if hum.Health <= 0 then
-                    for _, l in pairs(ESP_Objects.Lines) do l.Visible = false end
-                    if ESP_Objects.Tracer then ESP_Objects.Tracer.Visible = false end
-                    highlight.Enabled = false
                     return
                 end
 
@@ -315,13 +313,20 @@ local function CreateDrawingESP(player)
                 local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255, 255, 255)
                 local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
 
-                -- 1. Highlight
-                highlight.Enabled = (onScreen and isRoleEnabled and ESP_Config.ShowHighlight) or false
-                highlight.FillColor = roleColor
-                highlight.OutlineColor = roleColor
+                -- 1. 🔥 ESP Highlight (ตัด onScreen ออกเพื่อให้ทะลุกำแพงได้เสถียร)
+                local highlight = GetHighlight()
+                if hum.Health > 0 and isRoleEnabled and ESP_Config.ShowHighlight then
+                    highlight.Enabled = true
+                    highlight.FillColor = roleColor
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.6
+                    highlight.OutlineTransparency = 0
+                else
+                    highlight.Enabled = false
+                end
 
-                -- 2. 3D Box
-                if onScreen and isRoleEnabled and ESP_Config.ShowBox then
+                -- 2. 🔥 ESP Box 3D (ต้องใช้ onScreen กันเส้นพุ่งมั่ว)
+                if onScreen and hum.Health > 0 and isRoleEnabled and ESP_Config.ShowBox then
                     RefreshDrawing()
                     local size = Vector3.new(2, 3, 2)
                     local cf = hrp.CFrame
@@ -349,8 +354,8 @@ local function CreateDrawingESP(player)
                     for _, l in pairs(ESP_Objects.Lines) do l.Visible = false end
                 end
 
-                -- 3. Tracer
-                if onScreen and isRoleEnabled and ESP_Config.ShowTracer then
+                -- 3. 🔥 ESP Tracer (Line)
+                if onScreen and hum.Health > 0 and isRoleEnabled and ESP_Config.ShowTracer then
                     RefreshDrawing()
                     if ESP_Objects.Tracer then
                         ESP_Objects.Tracer.Visible = true
@@ -368,6 +373,7 @@ local function CreateDrawingESP(player)
     player.CharacterAdded:Connect(ApplyESP)
     if player.Character then ApplyESP(player.Character) end
 end
+
 
 -- ลบส่วน player.Removing ออก แล้วเปลี่ยนมาใช้ PlayerRemoving ของ Players แทน
 Players.PlayerRemoving:Connect(function(player)
@@ -479,7 +485,7 @@ Tabs.ESP:AddToggle("DistanceESP", {
 
 -- Object
 --=========================
--- 🔥 Optimized Object ESP (Event-Based)
+-- 🔥 Optimized & Fixed Object ESP
 --=========================
 local Object_Config = {
     Generator = false,
@@ -502,6 +508,16 @@ local OBJ_MAPPING = {
     ["gate"] = "Gate", ["gates"] = "Gate"
 }
 
+-- ฟังก์ชันจัดการลบ Highlight ให้สิ้นซาก
+local function ClearESP(obj)
+    if Object_Highlights[obj] then
+        pcall(function()
+            Object_Highlights[obj]:Destroy()
+        end)
+        Object_Highlights[obj] = nil
+    end
+end
+
 -- ฟังก์ชันจัดการ Highlight รายชิ้น
 local function ManageESP(obj)
     local typeName = OBJ_MAPPING[string.lower(obj.Name)]
@@ -510,8 +526,8 @@ local function ManageESP(obj)
     local isEnabled = Object_Config[typeName]
 
     if isEnabled then
-        -- ถ้าเปิดอยู่และยังไม่มี Highlight ให้สร้าง
-        if not Object_Highlights[obj] then
+        -- ถ้าเปิดอยู่ แต่ยังไม่มี Highlight ให้สร้างใหม่
+        if not Object_Highlights[obj] or not Object_Highlights[obj].Parent then
             local highlight = Instance.new("Highlight")
             highlight.Name = "Reaper_ObjESP"
             highlight.Adornee = obj
@@ -521,22 +537,18 @@ local function ManageESP(obj)
             highlight.OutlineTransparency = 0
             highlight.Parent = obj
             Object_Highlights[obj] = highlight
-        else
-            Object_Highlights[obj].Enabled = true
         end
+        Object_Highlights[obj].Enabled = true
     else
-        -- ถ้าปิดอยู่ แต่มี Highlight ให้ซ่อนไว้
-        if Object_Highlights[obj] then
-            Object_Highlights[obj].Enabled = false
-        end
+        -- ถ้าปิดอยู่ ให้ลบทิ้งทันทีเพื่อประหยัด Memory และป้องกันอาการค้าง
+        ClearESP(obj)
     end
 end
 
--- ฟังก์ชันสแกนรอบเดียว (เรียกใช้เฉพาะตอนเปิด Toggle)
-local function InitialScan(typeName)
+-- ฟังก์ชันสแกน
+local function RefreshType(typeName)
     for _, obj in ipairs(workspace:GetDescendants()) do
-        local mappedType = OBJ_MAPPING[string.lower(obj.Name)]
-        if mappedType == typeName then
+        if OBJ_MAPPING[string.lower(obj.Name)] == typeName then
             ManageESP(obj)
         end
     end
@@ -550,9 +562,10 @@ Tabs.Object:AddToggle("GenESP", {
     Default = false,
     Callback = function(v)
         Object_Config.Generator = v
-        if v then InitialScan("Generator") else
-            for obj, hl in pairs(Object_Highlights) do
-                if OBJ_MAPPING[string.lower(obj.Name)] == "Generator" then hl.Enabled = false end
+        if v then RefreshType("Generator") else
+            -- ล้าง ESP Generator ทั้งหมดเมื่อปิด
+            for obj, _ in pairs(Object_Highlights) do
+                if obj.Name:lower():find("generator") then ClearESP(obj) end
             end
         end
     end
@@ -563,9 +576,9 @@ Tabs.Object:AddToggle("HookESP", {
     Default = false,
     Callback = function(v)
         Object_Config.Hook = v
-        if v then InitialScan("Hook") else
-            for obj, hl in pairs(Object_Highlights) do
-                if OBJ_MAPPING[string.lower(obj.Name)] == "Hook" then hl.Enabled = false end
+        if v then RefreshType("Hook") else
+            for obj, _ in pairs(Object_Highlights) do
+                if obj.Name:lower():find("hook") then ClearESP(obj) end
             end
         end
     end
@@ -576,32 +589,29 @@ Tabs.Object:AddToggle("GateESP", {
     Default = false,
     Callback = function(v)
         Object_Config.Gate = v
-        if v then InitialScan("Gate") else
-            for obj, hl in pairs(Object_Highlights) do
-                if OBJ_MAPPING[string.lower(obj.Name)] == "Gate" then hl.Enabled = false end
+        if v then RefreshType("Gate") else
+            for obj, _ in pairs(Object_Highlights) do
+                if obj.Name:lower():find("gate") then ClearESP(obj) end
             end
         end
     end
 })
 
 --=========================
--- 🔥 Event Listeners (ไม่ต้องใช้ While Loop)
+-- 🔥 Event Listeners
 --=========================
 workspace.DescendantAdded:Connect(function(obj)
-    -- ตรวจสอบเฉพาะตอนที่มี Object ใหม่เกิด
-    local typeName = OBJ_MAPPING[string.lower(obj.Name)]
-    if typeName and Object_Config[typeName] then
-        task.wait(0.1) -- รอให้ Object โหลดคุณสมบัติเสร็จ
+    -- เพิ่ม Delay เล็กน้อย เผื่อ Object สปอว์นแล้วยังไม่ได้ Set Name
+    task.wait(0.2) 
+    if OBJ_MAPPING[string.lower(obj.Name)] then
         ManageESP(obj)
     end
 end)
 
--- ล้าง Cache เมื่อ Object ถูกลบ
 workspace.DescendantRemoving:Connect(function(obj)
-    if Object_Highlights[obj] then
-        Object_Highlights[obj] = nil
-    end
+    ClearESP(obj)
 end)
+
 
 
 
