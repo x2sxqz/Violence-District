@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 11
+-- 🔥 Lib Load Screen Reaper Hub 12
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -354,8 +354,100 @@ for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
 Players.PlayerAdded:Connect(CreateESP)
 
 
+_G.NameESPEnabled = false
+_G.DistanceESPEnabled = false
+local MaxDistance = 4000
+local ESPCache = {}
 
+local function CreateESP(Player)
+    if Player == LP then return end
 
+    local Billboard = Instance.new("BillboardGui")
+    Billboard.Name = "ReaperTag"
+    Billboard.AlwaysOnTop = true
+    Billboard.Size = UDim2.new(0, 200, 0, 50)
+    Billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+    Billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local NameLabel = Instance.new("TextLabel", Billboard)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Size = UDim2.new(1, 0, 1, 0)
+    NameLabel.Text = ""
+    NameLabel.Font = Enum.Font.RobotoMono -- ฟอนต์ตามที่คุณใช้
+    NameLabel.TextSize = 14
+    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NameLabel.TextStrokeTransparency = 0
+    NameLabel.RichText = true
+
+    ESPCache[Player] = {
+        Billboard = Billboard,
+        NameLabel = NameLabel
+    }
+end
+
+local function RemoveESP(Player)
+    if ESPCache[Player] then
+        if ESPCache[Player].Billboard then ESPCache[Player].Billboard:Destroy() end
+        ESPCache[Player] = nil
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    for Player, ESP in pairs(ESPCache) do
+        local Character = Player.Character
+        local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+        local Hum = Character and Character:FindFirstChildOfClass("Humanoid")
+
+        -- ตรวจสอบเงื่อนไข (ต้องมีตัวละคร, ไม่ตาย, อยู่ในระยะ)
+        if not Character or not Root or not Hum or Hum.Health <= 0 then
+            ESP.Billboard.Enabled = false
+            continue
+        end
+
+        local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
+        local _, OnScreen = Camera:WorldToViewportPoint(Root.Position)
+
+        -- ตรวจสอบระยะและตำแหน่งบนจอ
+        if Distance > MaxDistance or not OnScreen then
+            ESP.Billboard.Enabled = false
+            continue
+        end
+
+        -- แสดงผล Name & Distance
+        if _G.NameESPEnabled or _G.DistanceESPEnabled then
+            ESP.Billboard.Enabled = true
+            ESP.Billboard.Parent = Character:FindFirstChild("Head") or Root
+            
+            local NameTag = _G.NameESPEnabled and Player.Name or ""
+            local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[ %dm ]</font>", math.floor(Distance)) or ""
+            
+            ESP.NameLabel.Text = NameTag .. DistTag
+            -- ปรับขนาดตัวอักษรตามระยะทาง (ยิ่งไกลยิ่งเล็ก)
+            ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 10, 16)
+        else
+            ESP.Billboard.Enabled = false
+        end
+    end
+end)
+
+-- เริ่มทำงานกับผู้เล่นในเซิร์ฟเวอร์
+for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+Tabs.ESP:AddToggle("NameESP", {
+    Title = "ESP Name",
+    Default = false,
+    Callback = function(v) _G.NameESPEnabled = v end
+})
+
+Tabs.ESP:AddToggle("DistanceESP", {
+    Title = "ESP Distance",
+    Default = false,
+    Callback = function(v) _G.DistanceESPEnabled = v end
+})
+
+---------------
 
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:SetLibrary(Fluent)
