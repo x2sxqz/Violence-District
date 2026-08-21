@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 9
+-- 🔥 Lib Load Screen Reaper Hub 10
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -54,6 +54,7 @@ local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/L
 --=========================
 local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
+Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
 Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
@@ -134,6 +135,51 @@ local function startKeyTimer()
 end
 
 startKeyTimer()
+
+--player
+local WS_Var = {
+    Enabled = false,
+    Value = 16,
+    Default = 16
+}
+
+task.spawn(function()
+    local char = LP.Character or LP.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    WS_Var.Default = hum.WalkSpeed
+end)
+
+RunService.Stepped:Connect(function()
+    if WS_Var.Enabled then
+        pcall(function()
+            local hum = LP.Character and LP.Character:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = WS_Var.Value
+            end
+        end)
+    end
+end)
+
+Tabs.Player:AddSlider("SpeedSlider", {
+    Title = "Speed Value",
+    Min = 16,
+    Max = 300,
+    Default = 16,
+    Rounding = 1,
+    Callback = function(v)
+        WS_Var.Value = v
+    end
+})
+
+Tabs.Player:AddToggle("SpeedToggle", {Title = "WalkSpeed", Default = false}):OnChanged(function(v)
+    WS_Var.Enabled = v
+    if not v then
+        pcall(function()
+            LP.Character.Humanoid.WalkSpeed = WS_Var.Default
+        end)
+    end
+end)
+
 
 
 --esp
