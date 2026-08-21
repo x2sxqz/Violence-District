@@ -151,7 +151,7 @@ local ESP_Config = {
 
 
 local RoleDropdown = Tabs.ESP:AddDropdown("ESPRoles", {
-    Title = "Select Roles to Display",
+    Title = "Select Type",
     Values = {"Survivors", "Killer", "Spectator"},
     Multi = true,
     Default = {},
@@ -161,15 +161,15 @@ RoleDropdown:OnChanged(function(Value)
     ESP_Config.EnabledRoles = Value
 end)
 
-Tabs.ESP:AddToggle("HighlightToggle", {Title = "Enable Highlight (Chams)", Default = false}):OnChanged(function(v)
+Tabs.ESP:AddToggle("HighlightToggle", {Title = "Enable Highlight", Default = false}):OnChanged(function(v)
     ESP_Config.ShowHighlight = v
 end)
 
-Tabs.ESP:AddToggle("BoxToggle", {Title = "Enable ESP Box (3D Wireframe)", Default = false}):OnChanged(function(v)
+Tabs.ESP:AddToggle("BoxToggle", {Title = "ESP Box 3D", Default = false}):OnChanged(function(v)
     ESP_Config.ShowBox = v
 end)
 
-Tabs.ESP:AddToggle("TracerToggle", {Title = "Enable Tracers (Line)", Default = false}):OnChanged(function(v)
+Tabs.ESP:AddToggle("TracerToggle", {Title = "ESP Line", Default = false}):OnChanged(function(v)
     ESP_Config.ShowTracer = v
 end)
 
