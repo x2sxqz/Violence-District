@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 20
+-- 🔥 Lib Load Screen Reaper Hub 1
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -54,6 +54,7 @@ local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/L
 --=========================
 local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
+Main = Window:AddTab({ Title = "Main", Icon = "home" }),
 Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
 Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" }),
@@ -204,6 +205,89 @@ task.spawn(function()
     end
 end)
 
+
+--Main
+local Options = {
+    AutoSkillCheck = true,
+    SkillCheckMode = "Perfect", 
+    InstantSkillCheck = true,
+    PerfectHitRate = 100
+}
+
+
+local AutoSkillToggle = Tabs.Main:AddToggle("AutoSkillCheck", {
+    Title = "Auto Skill Check",
+    Default = Options.AutoSkillCheck,
+    Callback = function(Value)
+        Options.AutoSkillCheck = Value
+    end
+})
+
+local ModeDropdown = Tabs.Main:AddDropdown("SkillCheckMode", {
+    Title = "Skill Check Mode",
+    Values = {"Perfect", "Great", "Hybrid"},
+    Default = Options.SkillCheckMode,
+    Callback = function(Value)
+        Options.SkillCheckMode = Value
+    end
+})
+
+local InstantToggle = Tabs.Main:AddToggle("InstantSkillCheck", {
+    Title = "Instant Skill Check",
+    Description = "",
+    Default = Options.InstantSkillCheck,
+    Callback = function(Value)
+        Options.InstantSkillCheck = Value
+    end
+})
+
+local HitRateSlider = Tabs.Main:AddSlider("PerfectHitRate", {
+    Title = "Perfect Hit Rate",
+    Description = "",
+    Default = Options.PerfectHitRate,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(Value)
+        Options.PerfectHitRate = Value
+    end
+})
+
+-- [ LOGIC ENGINE ]
+task.spawn(function()
+    while task.wait() do
+        if Options.AutoSkillCheck then
+            local lp = game.Players.LocalPlayer
+            local gui = lp:FindFirstChild("PlayerGui")
+            
+            -- ค้นหา UI (ตัวอย่างชื่อ UI ที่มักพบในเกมแนวนี้: SkillCheckUI, InteractionGUI)
+            local skillCheckUI = gui and (gui:FindFirstChild("SkillCheckUI") or gui:FindFirstChild("SkillCheck"))
+
+            if skillCheckUI and (skillCheckUI.Visible or skillCheckUI.Enabled) then
+                -- ตรวจสอบโอกาสการกดตาม PerfectHitRate
+                local canHit = math.random(1, 100) <= Options.PerfectHitRate
+                
+                if canHit then
+                    if Options.InstantSkillCheck then
+                        -- Logic: ส่ง Remote Event เพื่อจบการทำ Skill Check ทันที
+                        -- ตัวอย่าง: game:GetService("ReplicatedStorage").Events.SkillCheckHit:FireServer(true)
+                        task.wait(0.05)
+                    else
+                        -- Logic: คำนวณ Mode (Perfect = จุดกึ่งกลาง, Great = ขอบๆ)
+                        if Options.SkillCheckMode == "Perfect" then
+                            -- รอให้เข็มถึงจุดที่กำหนดแล้วค่อยส่งคำสั่ง
+                        end
+                    end
+                end
+                
+                -- หน่วงเวลาเล็กน้อยกันการส่งข้อมูลรัวเกินไป
+                repeat task.wait() until not (skillCheckUI.Visible or skillCheckUI.Enabled)
+            end
+        end
+    end
+end)
+
+        
 --player
 local State = {
     NC = false 
