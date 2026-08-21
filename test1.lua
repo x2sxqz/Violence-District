@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 13
+-- 🔥 Lib Load Screen Reaper Hub 14
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -232,6 +232,9 @@ Tabs.ESP:AddToggle("TracerToggle", {Title = "ESP Line", Default = false}):OnChan
     ESP_Config.ShowTracer = v
 end)
 
+-- =========================
+-- 🔥 Fixed ESP Logic (Box & Tracer)
+-- =========================
 
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
@@ -241,118 +244,130 @@ local function GetRole(player)
     return "Spectator"
 end
 
-local function CreateESP(player)
+local function CreateDrawingESP(player)
     if player == LocalPlayer then return end
 
-    -- สร้างเส้น 12 เส้นสำหรับกล่อง 3D (Drawing API)
-    local Lines = {}
-    for i = 1, 12 do
-        Lines[i] = Drawing.new("Line")
-        Lines[i].Thickness = 1.5
-        Lines[i].Transparency = 1
-        Lines[i].Visible = false
+    local ESP_Objects = {
+        Lines = {},
+        Tracer = nil
+    }
+
+    local function RemoveDrawing()
+        for _, l in pairs(ESP_Objects.Lines) do pcall(function() l:Remove() end) end
+        if ESP_Objects.Tracer then pcall(function() ESP_Objects.Tracer:Remove() end) end
+        ESP_Objects.Lines = {}
+        ESP_Objects.Tracer = nil
     end
 
-    -- เส้น Tracer
-    local Tracer = Drawing.new("Line")
-    Tracer.Visible = false
-    Tracer.Thickness = 1.5
-    Tracer.Transparency = 1
+    local function RefreshDrawing()
+        if #ESP_Objects.Lines < 12 then
+            for i = 1, 12 do
+                local l = Drawing.new("Line")
+                l.Thickness = 1.5
+                l.Transparency = 1
+                l.Visible = false
+                table.insert(ESP_Objects.Lines, l)
+            end
+        end
+        if not ESP_Objects.Tracer then
+            local t = Drawing.new("Line")
+            t.Thickness = 1.5
+            t.Transparency = 1
+            t.Visible = false
+            ESP_Objects.Tracer = t
+        end
+    end
 
     local function ApplyESP(character)
+        RefreshDrawing()
         local hrp = character:WaitForChild("HumanoidRootPart", 10)
         local hum = character:WaitForChild("Humanoid", 10)
         
-        -- Chams (Highlight)
         local highlight = character:FindFirstChild("R_Highlight") or Instance.new("Highlight")
         highlight.Name = "R_Highlight"
         highlight.Parent = character
-        highlight.Enabled = false
         highlight.FillTransparency = 0.6
 
         local connection
         connection = RunService.RenderStepped:Connect(function()
-            if not character or not character.Parent or not hrp.Parent or hum.Health <= 0 then
-                for _, l in pairs(Lines) do l.Visible = false end
-                Tracer.Visible = false
-                highlight.Enabled = false
-                if not player or not player.Parent then
-                    for _, l in pairs(Lines) do l:Remove() end
-                    Tracer:Remove()
-                    connection:Disconnect()
-                end
+            if not player or not player.Parent then
+                RemoveDrawing()
+                if highlight then highlight:Destroy() end
+                connection:Disconnect()
                 return
             end
 
-            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if not character or not character.Parent or hum.Health <= 0 then
+                for _, l in pairs(ESP_Objects.Lines) do l.Visible = false end
+                if ESP_Objects.Tracer then ESP_Objects.Tracer.Visible = false end
+                highlight.Enabled = false
+                return
+            end
+
             local role = GetRole(player)
             local isRoleEnabled = ESP_Config.EnabledRoles[role]
             local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255, 255, 255)
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
 
-            if onScreen and isRoleEnabled then
-                -- 1. Chams
-                highlight.Enabled = ESP_Config.ShowHighlight
-                highlight.FillColor = roleColor
+            -- 1. Highlight (Chams)
+            highlight.Enabled = (onScreen and isRoleEnabled and ESP_Config.ShowHighlight) or false
+            highlight.FillColor = roleColor
 
-                -- 2. 3D Upright Box (Drawing Lines)
-                if ESP_Config.ShowBox then
-                    local size = Vector3.new(2, 3, 2) -- ขนาดกล่อง (กว้าง, สูง, ลึก)
-                    local center = hrp.Position
-                    
-                    -- จุดยอดทั้ง 8 ของกล่อง (แบบตั้งตรง ไม่หมุนตามตัว)
-                    local vertices = {
-                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X,  size.Y, -size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new( size.X,  size.Y, -size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new( size.X,  size.Y,  size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X,  size.Y,  size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X, -size.Y, -size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new( size.X, -size.Y, -size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new( size.X, -size.Y,  size.Z)),
-                        Camera:WorldToViewportPoint(center + Vector3.new(-size.X, -size.Y,  size.Z))
-                    }
-
-                    local connections = {
-                        {1,2}, {2,3}, {3,4}, {4,1}, -- บน
-                        {5,6}, {6,7}, {7,8}, {8,5}, -- ล่าง
-                        {1,5}, {2,6}, {3,7}, {4,8}  -- เสาเชื่อม
-                    }
-
-                    for i, conn in ipairs(connections) do
-                        local p1 = vertices[conn[1]]
-                        local p2 = vertices[conn[2]]
-                        Lines[i].Visible = true
-                        Lines[i].From = Vector2.new(p1.X, p1.Y)
-                        Lines[i].To = Vector2.new(p2.X, p2.Y)
-                        Lines[i].Color = roleColor
+            -- 2. 3D Box
+            if onScreen and isRoleEnabled and ESP_Config.ShowBox then
+                RefreshDrawing()
+                local size = Vector3.new(2, 3, 2)
+                local center = hrp.Position
+                local vertices = {
+                    Camera:WorldToViewportPoint(center + Vector3.new(-size.X,  size.Y, -size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new( size.X,  size.Y, -size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new( size.X,  size.Y,  size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new(-size.X,  size.Y,  size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new(-size.X, -size.Y, -size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new( size.X, -size.Y, -size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new( size.X, -size.Y,  size.Z)),
+                    Camera:WorldToViewportPoint(center + Vector3.new(-size.X, -size.Y,  size.Z))
+                }
+                local conns = {{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}}
+                for i, conn in ipairs(conns) do
+                    local l = ESP_Objects.Lines[i]
+                    if l then
+                        l.Visible = true
+                        l.From = Vector2.new(vertices[conn[1]].X, vertices[conn[1]].Y)
+                        l.To = Vector2.new(vertices[conn[2]].X, vertices[conn[2]].Y)
+                        l.Color = roleColor
                     end
-                else
-                    for _, l in pairs(Lines) do l.Visible = false end
-                end
-
-                -- 3. Tracer
-                if ESP_Config.ShowTracer then
-                    Tracer.Visible = true
-                    Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                    Tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-                    Tracer.Color = roleColor
-                else 
-                    Tracer.Visible = false 
                 end
             else
-                for _, l in pairs(Lines) do l.Visible = false end
-                Tracer.Visible = false
-                highlight.Enabled = false
+                for _, l in pairs(ESP_Objects.Lines) do l.Visible = false end
+            end
+
+            -- 3. Tracer
+            if onScreen and isRoleEnabled and ESP_Config.ShowTracer then
+                RefreshDrawing()
+                local t = ESP_Objects.Tracer
+                if t then
+                    t.Visible = true
+                    t.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    t.To = Vector2.new(screenPos.X, screenPos.Y)
+                    t.Color = roleColor
+                end
+            else
+                if ESP_Objects.Tracer then ESP_Objects.Tracer.Visible = false end
             end
         end)
     end
 
     player.CharacterAdded:Connect(ApplyESP)
     if player.Character then task.spawn(ApplyESP, player.Character) end
+    player.Removing:Connect(RemoveDrawing)
 end
 
--- รันระบบ ESP
-for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
-Players.PlayerAdded:Connect(CreateESP)
+-- Initialize ESP
+for _, p in ipairs(Players:GetPlayers()) do CreateDrawingESP(p) end
+Players.PlayerAdded:Connect(CreateDrawingESP)
+
+
 
 
 _G.NameESPEnabled = false
