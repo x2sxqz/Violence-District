@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 10
+-- 🔥 Lib Load Screen Reaper Hub 11
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -137,49 +137,61 @@ end
 startKeyTimer()
 
 --player
-local WS_Var = {
-    Enabled = false,
-    Value = 16,
-    Default = 16
-}
+local WSState = false
+local WSValue = 16  
+local DefaultWS = 16
+local initialized = false
 
-task.spawn(function()
-    local char = LP.Character or LP.CharacterAdded:Wait()
+local function HookChar(char)
     local hum = char:WaitForChild("Humanoid")
-    WS_Var.Default = hum.WalkSpeed
-end)
+    
+    -- บันทึกค่าความเร็วปกติของเกมไว้แค่ครั้งเดียวตอนรันสคริปต์
+    if not initialized then
+        DefaultWS = hum.WalkSpeed
+        initialized = true
+    end
+end
 
-RunService.Stepped:Connect(function()
-    if WS_Var.Enabled then
-        pcall(function()
-            local hum = LP.Character and LP.Character:FindFirstChild("Humanoid")
-            if hum then
-                hum.WalkSpeed = WS_Var.Value
-            end
-        end)
+if LP.Character then HookChar(LP.Character) end
+LP.CharacterAdded:Connect(HookChar)
+
+RunService.RenderStepped:Connect(function()
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    -- ทำงานเฉพาะตอนเปิด Toggle เท่านั้น
+    if WSState then
+        hum.WalkSpeed = WSValue
     end
 end)
 
-Tabs.Player:AddSlider("SpeedSlider", {
+-- ช่องกรอกตัวเลขความเร็ว
+Tabs.Player:AddInput("WSV", {
     Title = "Speed Value",
-    Min = 16,
-    Max = 300,
-    Default = 16,
-    Rounding = 1,
+    Default = "16",
     Callback = function(v)
-        WS_Var.Value = v
+        WSValue = tonumber(v) or 16
     end
 })
 
-Tabs.Player:AddToggle("SpeedToggle", {Title = "WalkSpeed", Default = false}):OnChanged(function(v)
-    WS_Var.Enabled = v
-    if not v then
-        pcall(function()
-            LP.Character.Humanoid.WalkSpeed = WS_Var.Default
-        end)
+-- ปุ่มเปิด/ปิด
+Tabs.Player:AddToggle("WS", {
+    Title = "WalkSpeed",
+    Default = false,
+    Callback = function(v) 
+        WSState = v 
+        
+        -- ถ้ากดปิด ให้คืนค่าความเร็วกลับเป็นค่าเริ่มต้นทันที
+        if not v then 
+            local char = LP.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then 
+                hum.WalkSpeed = DefaultWS 
+            end 
+        end
     end
-end)
-
+})
 
 
 --esp
