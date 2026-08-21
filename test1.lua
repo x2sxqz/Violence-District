@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 15
+-- 🔥 Lib Load Screen Reaper Hub 16
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -233,7 +233,7 @@ Tabs.ESP:AddToggle("TracerToggle", {Title = "ESP Line", Default = false}):OnChan
 end)
 
 -- =========================
--- 🔥 Fixed ESP Logic (Box & Tracer) - No Blocking Version
+-- 🔥 Fixed ESP Logic (Box, Tracer, Highlight) - Version 2.1
 -- =========================
 
 local function GetRole(player)
@@ -279,9 +279,9 @@ local function CreateDrawingESP(player)
     end
 
     local function ApplyESP(character)
-        task.spawn(function() -- แยก Thread เพื่อไม่ให้หยุดรอจนสคริปต์หลักค้าง
-            local hrp = character:WaitForChild("HumanoidRootPart", 5)
-            local hum = character:WaitForChild("Humanoid", 5)
+        task.spawn(function()
+            local hrp = character:WaitForChild("HumanoidRootPart", 10)
+            local hum = character:WaitForChild("Humanoid", 10)
             if not hrp or not hum then return end
 
             RefreshDrawing()
@@ -290,17 +290,19 @@ local function CreateDrawingESP(player)
             highlight.Name = "R_Highlight"
             highlight.Parent = character
             highlight.FillTransparency = 0.6
+            highlight.OutlineTransparency = 0
 
             local connection
             connection = RunService.RenderStepped:Connect(function()
-                if not player or not player.Parent then
+                -- ตรวจสอบว่าผู้เล่นหรือ Character ยังอยู่ไหม
+                if not player or not player.Parent or not character or not character.Parent then
                     RemoveDrawing()
                     if highlight then highlight:Destroy() end
                     connection:Disconnect()
                     return
                 end
 
-                if not character or not character.Parent or hum.Health <= 0 then
+                if hum.Health <= 0 then
                     for _, l in pairs(ESP_Objects.Lines) do l.Visible = false end
                     if ESP_Objects.Tracer then ESP_Objects.Tracer.Visible = false end
                     highlight.Enabled = false
@@ -315,6 +317,7 @@ local function CreateDrawingESP(player)
                 -- 1. Highlight
                 highlight.Enabled = (onScreen and isRoleEnabled and ESP_Config.ShowHighlight) or false
                 highlight.FillColor = roleColor
+                highlight.OutlineColor = roleColor
 
                 -- 2. 3D Box
                 if onScreen and isRoleEnabled and ESP_Config.ShowBox then
@@ -363,14 +366,18 @@ local function CreateDrawingESP(player)
 
     player.CharacterAdded:Connect(ApplyESP)
     if player.Character then ApplyESP(player.Character) end
-    player.Removing:Connect(RemoveDrawing)
 end
 
--- Initialize Drawing ESP safely
+-- ลบส่วน player.Removing ออก แล้วเปลี่ยนมาใช้ PlayerRemoving ของ Players แทน
+Players.PlayerRemoving:Connect(function(player)
+    -- ระบบจะจัดการผ่าน connection:Disconnect() ในลูป RenderStepped อยู่แล้ว
+end)
+
 task.spawn(function()
     for _, p in ipairs(Players:GetPlayers()) do CreateDrawingESP(p) end
     Players.PlayerAdded:Connect(CreateDrawingESP)
 end)
+
 
 
 
