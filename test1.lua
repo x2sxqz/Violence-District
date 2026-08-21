@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 19
+-- 🔥 Lib Load Screen Reaper Hub 20
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -63,17 +63,9 @@ Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 
 
 -- Key Time
-local startTime = tick()
+local FIREBASE_BASE_URL = "https://keysystem-reaper-default-rtdb.asia-southeast1.firebasedatabase.app/keys"
+local KEY_FILE = "reaper_saved_key.txt"
 
-local function formatTime(s)
-    local h = math.floor(s / 3600)
-    local m = math.floor((s % 3600) / 60)
-    local sec = math.floor(s % 60)
-    return string.format("%02d:%02d:%02d", h, m, sec)
-end
-
-
--- Key Times
 local ExpiryLabel = Tabs.Status:AddParagraph({
     Title = "Key Remaining Time",
     Content = "Fetching data..."
@@ -81,87 +73,71 @@ local ExpiryLabel = Tabs.Status:AddParagraph({
 
 local function startKeyTimer()
     task.spawn(function()
-        if not isfile(KEY_FILE) then
+        if not isfile(KEY_FILE) then 
             ExpiryLabel:SetDesc("Status: No key file found")
-            return
+            return 
         end
-
+        
         local rawKey = readfile(KEY_FILE)
-        local savedKey = rawKey:gsub("%s+", "")
-
+        local savedKey = rawKey:gsub("%s+", "") 
+        
         local success, response = pcall(function()
-            return game:HttpGet(
-                string.format("%s/%s.json", FIREBASE_BASE_URL, savedKey)
-            )
+            return game:HttpGet(string.format("%s/%s.json", FIREBASE_BASE_URL, savedKey))
         end)
 
         if success and response and response ~= "null" then
-            local decodeSuccess, data = pcall(function()
-                return HttpService:JSONDecode(response)
-            end)
-
+            local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(response) end)
+            
             if decodeSuccess and data and data.expiresAt then
                 if data.hwid == "" or data.hwid == nil or data.hwid == gethwid() then
-                    local targetTime = tonumber(data.expiresAt) / 1000
-
+                    local targetTime = tonumber(data.expiresAt) / 1000 
+                    
                     while true do
                         local timeLeft = targetTime - os.time()
-
+                        
                         if timeLeft > 0 then
                             local d = math.floor(timeLeft / 86400)
                             local h = math.floor((timeLeft % 86400) / 3600)
                             local m = math.floor((timeLeft % 3600) / 60)
                             local s = math.floor(timeLeft % 60)
-
-                            local displayStr
-
+                            
+                            local displayStr = ""
+                            
+                            -- [คงไว้ตามต้นฉบับของคุณเป๊ะๆ]
                             if d > 0 then
-                                displayStr = string.format(
-                                    "%d Days : %d Hours : %d Minutes : %d s",
-                                    d, h, m, s
-                                )
+                                displayStr = string.format("%d Days : %d Hours : %d Minutes : %d s", d, h, m, s)
                             elseif h > 0 then
-                                displayStr = string.format(
-                                    "%d Hours : %d Minutes : %d s",
-                                    h, m, s
-                                )
+                                displayStr = string.format("%d Hours : %d Minutes : %d s", h, m, s)
                             elseif m > 0 then
-                                displayStr = string.format(
-                                    "%d Minutes : %d s",
-                                    m, s
-                                )
+                                displayStr = string.format("%d Minutes : %d s", m, s)
                             else
                                 displayStr = string.format("%d s", s)
                             end
-
+                            
                             ExpiryLabel:SetDesc(displayStr)
                         else
+                            -- [ส่วนที่ปรับปรุง: เมื่อหมดเวลาให้ Rejoin รัวๆ]
                             ExpiryLabel:SetDesc("Status: Key Expired!")
-
                             while true do
                                 pcall(function()
-                                    TeleportService:TeleportToPlaceInstance(
-                                        game.PlaceId,
-                                        game.JobId,
-                                        LocalPlayer
-                                    )
+                                    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
                                 end)
-
-                                task.wait(0.5)
+                                task.wait(0.5) -- ความเร็วในการพยายาม Rejoin (0.5 วินาที)
                             end
+                            break
                         end
-
                         task.wait(1)
                     end
+                    return
                 end
             end
         end
-
         ExpiryLabel:SetDesc("Status: No Active Session")
     end)
 end
 
 startKeyTimer()
+
 
 Tabs.Status:AddParagraph({
     Title = "Player Profile",
