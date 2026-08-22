@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 2
+-- 🔥 Lib Load Screen Reaper Hub 3
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -619,7 +619,7 @@ local OBJ_MAPPING = {
     ["new generator"] = "Generator", ["new generators"] = "Generator",
     ["hook"] = "Hook", ["hooks"] = "Hook",
     ["gate"] = "Gate", ["gates"] = "Gate",
-    ["pallet"] = "Pallet", ["pallets"] = "Pallet"
+    ["palletwrong"] = "Pallet"
 }
 
 -- ฟังก์ชันจัดการลบ Highlight ให้สิ้นซาก
