@@ -619,8 +619,10 @@ local OBJ_MAPPING = {
     ["new generator"] = "Generator", ["new generators"] = "Generator",
     ["hook"] = "Hook", ["hooks"] = "Hook",
     ["gate"] = "Gate", ["gates"] = "Gate",
-    ["palletwrong"] = "Pallet"
+    ["palletwrong"] = "Pallet",
+    ["palletpoint"] = "Pallet"
 }
+
 
 -- ฟังก์ชันจัดการลบ Highlight ให้สิ้นซาก
 local function ClearESP(obj)
@@ -662,11 +664,13 @@ end
 -- ฟังก์ชันสแกน
 local function RefreshType(typeName)
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if OBJ_MAPPING[string.lower(obj.Name)] == typeName then
+        local nameLower = obj.Name:lower()
+        if OBJ_MAPPING[nameLower] == typeName then
             ManageESP(obj)
         end
     end
 end
+
 
 --=========================
 -- 🔥 UI Setup (Object Tab)
@@ -677,9 +681,8 @@ Tabs.Object:AddToggle("GenESP", {
     Callback = function(v)
         Object_Config.Generator = v
         if v then RefreshType("Generator") else
-            -- ล้าง ESP Generator ทั้งหมดเมื่อปิด
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("generator") then ClearESP(obj) end
+                if OBJ_MAPPING[obj.Name:lower()] == "Generator" then ClearESP(obj) end
             end
         end
     end
@@ -692,7 +695,7 @@ Tabs.Object:AddToggle("HookESP", {
         Object_Config.Hook = v
         if v then RefreshType("Hook") else
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("hook") then ClearESP(obj) end
+                if OBJ_MAPPING[obj.Name:lower()] == "Hook" then ClearESP(obj) end
             end
         end
     end
@@ -705,11 +708,12 @@ Tabs.Object:AddToggle("GateESP", {
         Object_Config.Gate = v
         if v then RefreshType("Gate") else
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("gate") then ClearESP(obj) end
+                if OBJ_MAPPING[obj.Name:lower()] == "Gate" then ClearESP(obj) end
             end
         end
     end
 })
+
 
 Tabs.Object:AddToggle("PalletESP", {
     Title = "ESP Pallet",
@@ -719,15 +723,16 @@ Tabs.Object:AddToggle("PalletESP", {
         if v then 
             RefreshType("Pallet") 
         else
-            -- ล้าง ESP Pallet ทั้งหมดเมื่อปิด
+            -- ล้างเฉพาะ Pallet โดยเช็คผ่าน Mapping
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("pallet") then 
+                if OBJ_MAPPING[obj.Name:lower()] == "Pallet" then 
                     ClearESP(obj) 
                 end
             end
         end
     end
 })
+
 
 --=========================
 -- 🔥 Event Listeners
