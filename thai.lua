@@ -1,4 +1,4 @@
--- Version 1.0
+-- Version 1.1
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -587,13 +587,15 @@ Tabs.ESP:AddToggle("DistanceESP", {
 })
 
 -- Object
+-- Object
 --=========================
 -- 🔥 Optimized & Fixed Object ESP
 --=========================
 local Object_Config = {
     Generator = false,
     Hook = false,
-    Gate = false
+    Gate = false,
+  	Pallet = false
 }
 
 local Object_Highlights = {}
@@ -601,15 +603,19 @@ local Object_Highlights = {}
 local OBJ_COLORS = {
     Generator = Color3.fromRGB(255, 255, 0),
     Hook = Color3.fromRGB(170, 0, 255),
-    Gate = Color3.fromRGB(0, 170, 255)
+    Gate = Color3.fromRGB(0, 170, 255),
+    Pallet = Color3.fromRGB(255, 150, 0)
 }
 
 local OBJ_MAPPING = {
     ["generator"] = "Generator", ["generators"] = "Generator", 
     ["new generator"] = "Generator", ["new generators"] = "Generator",
     ["hook"] = "Hook", ["hooks"] = "Hook",
-    ["gate"] = "Gate", ["gates"] = "Gate"
+    ["gate"] = "Gate", ["gates"] = "Gate",
+    ["palletwrong"] = "Pallet",
+    ["palletpoint"] = "Pallet"
 }
+
 
 -- ฟังก์ชันจัดการลบ Highlight ให้สิ้นซาก
 local function ClearESP(obj)
@@ -651,50 +657,70 @@ end
 -- ฟังก์ชันสแกน
 local function RefreshType(typeName)
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if OBJ_MAPPING[string.lower(obj.Name)] == typeName then
+        local nameLower = obj.Name:lower()
+        if OBJ_MAPPING[nameLower] == typeName then
             ManageESP(obj)
         end
     end
 end
 
+
 --=========================
 -- 🔥 UI Setup (Object Tab)
 --=========================
 Tabs.Object:AddToggle("GenESP", {
-    Title = "มองทะลุเครื่องปั่นไฟ",
+    Title = "มองเครื่องกำเนิดไฟฟ้า",
     Default = false,
     Callback = function(v)
         Object_Config.Generator = v
         if v then RefreshType("Generator") else
-            -- ล้าง ESP Generator ทั้งหมดเมื่อปิด
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("generator") then ClearESP(obj) end
+                if OBJ_MAPPING[obj.Name:lower()] == "Generator" then ClearESP(obj) end
             end
         end
     end
 })
 
 Tabs.Object:AddToggle("HookESP", {
-    Title = "มองทะลุตะขอ",
+    Title = "มองตะขอ",
     Default = false,
     Callback = function(v)
         Object_Config.Hook = v
         if v then RefreshType("Hook") else
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("hook") then ClearESP(obj) end
+                if OBJ_MAPPING[obj.Name:lower()] == "Hook" then ClearESP(obj) end
             end
         end
     end
 })
 
 Tabs.Object:AddToggle("GateESP", {
-    Title = "มองทะลุประตู",
+    Title = "มองประตูทางออก",
     Default = false,
     Callback = function(v)
         Object_Config.Gate = v
         if v then RefreshType("Gate") else
             for obj, _ in pairs(Object_Highlights) do
-                if obj.Name:lower():find("gate") then ClearESP(obj) end
+                if OBJ_MAPPING[obj.Name:lower()] == "Gate" then ClearESP(obj) end
+            end
+        end
+    end
+})
+
+
+Tabs.Object:AddToggle("PalletESP", {
+    Title = "มองกระดานไม้",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Pallet = v
+        if v then 
+            RefreshType("Pallet") 
+        else
+            -- ล้างเฉพาะ Pallet โดยเช็คผ่าน Mapping
+            for obj, _ in pairs(Object_Highlights) do
+                if OBJ_MAPPING[obj.Name:lower()] == "Pallet" then 
+                    ClearESP(obj) 
+                end
             end
         end
     end
