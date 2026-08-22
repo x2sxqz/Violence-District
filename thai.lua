@@ -37,8 +37,8 @@ local Camera = workspace.CurrentCamera
 local lp = LocalPlayer
 
 local Window = Fluent:CreateWindow({
-Title = "Reaper Hub | Violence District [BETA]",
-SubTitle = "",
+Title = "Reaper Hub",
+SubTitle = " | Violence District [BETA]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
