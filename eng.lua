@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 1
+-- 🔥 Lib Load Screen Reaper Hub 2
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -601,7 +601,8 @@ Tabs.ESP:AddToggle("DistanceESP", {
 local Object_Config = {
     Generator = false,
     Hook = false,
-    Gate = false
+    Gate = false,
+  	Pallet = false
 }
 
 local Object_Highlights = {}
@@ -609,14 +610,16 @@ local Object_Highlights = {}
 local OBJ_COLORS = {
     Generator = Color3.fromRGB(255, 255, 0),
     Hook = Color3.fromRGB(170, 0, 255),
-    Gate = Color3.fromRGB(0, 170, 255)
+    Gate = Color3.fromRGB(0, 170, 255),
+    Pallet = Color3.fromRGB(255, 150, 0)
 }
 
 local OBJ_MAPPING = {
     ["generator"] = "Generator", ["generators"] = "Generator", 
     ["new generator"] = "Generator", ["new generators"] = "Generator",
     ["hook"] = "Hook", ["hooks"] = "Hook",
-    ["gate"] = "Gate", ["gates"] = "Gate"
+    ["gate"] = "Gate", ["gates"] = "Gate",
+    ["pallet"] = "Pallet", ["pallets"] = "Pallet"
 }
 
 -- ฟังก์ชันจัดการลบ Highlight ให้สิ้นซาก
@@ -703,6 +706,24 @@ Tabs.Object:AddToggle("GateESP", {
         if v then RefreshType("Gate") else
             for obj, _ in pairs(Object_Highlights) do
                 if obj.Name:lower():find("gate") then ClearESP(obj) end
+            end
+        end
+    end
+})
+
+Tabs.Object:AddToggle("PalletESP", {
+    Title = "ESP Pallet",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Pallet = v
+        if v then 
+            RefreshType("Pallet") 
+        else
+            -- ล้าง ESP Pallet ทั้งหมดเมื่อปิด
+            for obj, _ in pairs(Object_Highlights) do
+                if obj.Name:lower():find("pallet") then 
+                    ClearESP(obj) 
+                end
             end
         end
     end
