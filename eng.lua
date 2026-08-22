@@ -40,7 +40,7 @@ local lp = LocalPlayer
 
 local Window = Fluent:CreateWindow({
 Title = "Reaper Hub",
-SubTitle = " | Violence District [BETA]",
+SubTitle = "Violence District [BETA]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
