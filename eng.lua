@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 6
+-- 🔥 Lib Load Screen Reaper Hub 7
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -208,6 +208,11 @@ end)
 
 
 --Main
+if _G.HyperX_Loop then
+    _G.HyperX_Loop:Disconnect()
+    _G.HyperX_Loop = nil
+end
+
 local Config = {
     Enabled = false,
     Mode = "Legit"
@@ -216,19 +221,20 @@ local Config = {
 local State = { busy = false }
 
 
--- [ Dropdown ขึ้นก่อนตามสั่ง ]
+-- [ 2. Dropdown - แก้ให้ค่าเริ่มต้น Sync ทันที ]
 local ModeDropdown = Tabs.Main:AddDropdown("ModeDropdown", {
     Title = "Select Mode",
     Values = {"Legit", "Instant"},
     Multi = false,
-    Default = 1,
+    Default = "Legit",
 })
 
 ModeDropdown:OnChanged(function(Value)
     Config.Mode = Value
 end)
+Config.Mode = ModeDropdown.Value -- Force set ค่าแรกเริ่ม
 
--- [ Toggle อยู่ล่าง ]
+-- [ 3. Toggle ]
 local AutoToggle = Tabs.Main:AddToggle("AutoSkillToggle", { 
     Title = "Auto Skill Check", 
     Default = false 
@@ -238,7 +244,6 @@ AutoToggle:OnChanged(function(Value)
     Config.Enabled = Value
 end)
 
--- [ Logic ]
 local function Trigger()
     if UserInputService.TouchEnabled then
         local ActionPath = "Survivor-mob.Controls.action.check"
@@ -256,28 +261,33 @@ local function Trigger()
         end
     else
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-        task.wait()
+        task.wait(0.05) -- เพิ่ม Delay เล็กน้อยให้ระบบ Register ทัน
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
     end
 end
 
-RunService.RenderStepped:Connect(function()
+-- [ 4. Logic Loop - ปรับการเช็คให้แม่นยำ ]
+_G.HyperX_Loop = RunService.RenderStepped:Connect(function()
     if not Config.Enabled or State.busy then return end
     
     local prompt = PlayerGui:FindFirstChild("SkillCheckPromptGui")
-    local check = prompt and prompt:FindFirstChild("Check")
-    if not check or not check.Visible then return end
+    if not prompt then return end
+    
+    local check = prompt:FindFirstChild("Check")
+    -- เช็คเพิ่ม: ต้อง Visible และค่าความโปร่งใสต้องปกติ (กันช่วง UI กำลัง Fade)
+    if not check or not check.Visible or check.GroupTransparency > 0.5 then return end
     
     local line = check:FindFirstChild("Line")
     local goal = check:FindFirstChild("Goal")
     if not line or not goal then return end
 
     if Config.Mode == "Instant" then
-        line.Rotation = goal.Rotation + 109
         State.busy = true
+        line.Rotation = goal.Rotation + 109
         task.spawn(function()
+            task.wait() -- รอ UI อัปเดต Rotation 1 Frame
             Trigger()
-            task.wait(0.2)
+            task.wait(0.5) -- หน่วงเวลาป้องกันการกดเบิ้ล
             State.busy = false
         end)
     else
@@ -286,11 +296,18 @@ RunService.RenderStepped:Connect(function()
         local startRange = (gr + 102) % 360
         local endRange   = (gr + 116) % 360
         
-        if (startRange > endRange and (lr >= startRange or lr <= endRange)) or (lr >= startRange and lr <= endRange) then
+        local inRange = false
+        if startRange > endRange then
+            inRange = (lr >= startRange or lr <= endRange)
+        else
+            inRange = (lr >= startRange and lr <= endRange)
+        end
+
+        if inRange then
             State.busy = true
             task.spawn(function()
                 Trigger()
-                task.wait(0.1)
+                task.wait(0.3)
                 State.busy = false
             end)
         end
