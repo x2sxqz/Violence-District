@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 5
+-- 🔥 Lib Load Screen Reaper Hub 6
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -37,6 +37,7 @@ local LocalPlayer = Players.LocalPlayer
 local LP = LocalPlayer
 local Camera = workspace.CurrentCamera
 local lp = LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local Window = Fluent:CreateWindow({
 Title = "Reaper Hub",
@@ -207,25 +208,51 @@ end)
 
 
 --Main
-local AutoSC = {
-    Enabled = true,
+local Config = {
+    Enabled = false,
     Mode = "Legit"
 }
-local isBusy = false
 
-local function TriggerAction()
+local State = { busy = false }
+
+
+-- [ Dropdown ขึ้นก่อนตามสั่ง ]
+local ModeDropdown = Tabs.Main:AddDropdown("ModeDropdown", {
+    Title = "Select Mode",
+    Values = {"Legit", "Instant"},
+    Multi = false,
+    Default = 1,
+})
+
+ModeDropdown:OnChanged(function(Value)
+    Config.Mode = Value
+end)
+
+-- [ Toggle อยู่ล่าง ]
+local AutoToggle = Tabs.Main:AddToggle("AutoSkillToggle", { 
+    Title = "Auto Skill Check", 
+    Default = false 
+})
+
+AutoToggle:OnChanged(function(Value)
+    Config.Enabled = Value
+end)
+
+-- [ Logic ]
+local function Trigger()
     if UserInputService.TouchEnabled then
         local ActionPath = "Survivor-mob.Controls.action.check"
         local b = PlayerGui
-        for segment in string.gmatch(ActionPath, "[^%.]+") do b = b and b:FindFirstChild(segment) end
+        for segment in string.gmatch(ActionPath, "[^%.]+") do
+            b = b and b:FindFirstChild(segment)
+        end
         if b and b:IsA("GuiObject") then
             local p, s = b.AbsolutePosition, b.AbsoluteSize
             local i = game:GetService("GuiService"):GetGuiInset()
-            pcall(function()
-                VirtualInputManager:SendTouchEvent(8822, 0, p.X + (s.X/2) + i.X, p.Y + (s.Y/2) + i.Y)
-                task.wait(0.01)
-                VirtualInputManager:SendTouchEvent(8822, 2, p.X + (s.X/2) + i.X, p.Y + (s.Y/2) + i.Y)
-            end)
+            local cx, cy = p.X + (s.X/2) + i.X, p.Y + (s.Y/2) + i.Y
+            VirtualInputManager:SendTouchEvent(8822, 0, cx, cy)
+            task.wait(0.01)
+            VirtualInputManager:SendTouchEvent(8822, 2, cx, cy)
         end
     else
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
@@ -235,44 +262,41 @@ local function TriggerAction()
 end
 
 RunService.RenderStepped:Connect(function()
-    if not AutoSC.Enabled or isBusy then return end
+    if not Config.Enabled or State.busy then return end
+    
     local prompt = PlayerGui:FindFirstChild("SkillCheckPromptGui")
     local check = prompt and prompt:FindFirstChild("Check")
     if not check or not check.Visible then return end
-    local line, goal = check:FindFirstChild("Line"), check:FindFirstChild("Goal")
+    
+    local line = check:FindFirstChild("Line")
+    local goal = check:FindFirstChild("Goal")
     if not line or not goal then return end
 
-    if AutoSC.Mode == "Instant" then
+    if Config.Mode == "Instant" then
         line.Rotation = goal.Rotation + 109
-        isBusy = true
-        task.spawn(function() TriggerAction() task.wait(0.2) isBusy = false end)
+        State.busy = true
+        task.spawn(function()
+            Trigger()
+            task.wait(0.2)
+            State.busy = false
+        end)
     else
-        local lr, gr = line.Rotation % 360, goal.Rotation % 360
-        local startRange, endRange = (gr + 102) % 360, (gr + 116) % 360
+        local lr = line.Rotation % 360
+        local gr = goal.Rotation % 360
+        local startRange = (gr + 102) % 360
+        local endRange   = (gr + 116) % 360
+        
         if (startRange > endRange and (lr >= startRange or lr <= endRange)) or (lr >= startRange and lr <= endRange) then
-            isBusy = true
-            task.spawn(function() TriggerAction() task.wait(0.1) isBusy = false end)
+            State.busy = true
+            task.spawn(function()
+                Trigger()
+                task.wait(0.1)
+                State.busy = false
+            end)
         end
     end
 end)
 
--- [ FLUENT UI COMPONENTS ]
-Tabs.Main:AddDropdown("ATSC_MODE", {
-    Title = "Skill Check Mode",
-    Values = {"Legit", "Instant"},
-    Default = "Legit",
-    Callback = function(Value)
-        AutoSC.Mode = Value
-    end
-})
-
-Tabs.Main:AddToggle("ATSC", {
-    Title = "Auto Skill Check",
-    Default = true,
-    Callback = function(Value)
-        AutoSC.Enabled = Value
-    end
-})
 
 
         
