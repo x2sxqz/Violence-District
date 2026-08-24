@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 15
+-- 🔥 Lib Load Screen Reaper Hub 16
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -747,8 +747,25 @@ local function ManageESP(obj)
 
     local isEnabled = Object_Config[typeName]
 
+    -- [เพิ่มเฉพาะส่วน Generator] 
+    if isEnabled and typeName == "Generator" then
+        local progress = obj:GetAttribute("RepairProgress") or obj:GetAttribute("ProgressRepair") or 0
+        if progress >= 100 then
+            ClearESP(obj)
+            return -- ถ้าเครื่องเสร็จแล้วให้หยุดทำงานตรงนี้เลย
+        end
+
+        -- ดักจับสัญญาณเผื่อซ่อมเสร็จทีหลัง (Real-time)
+        if not obj:GetAttribute("Reaper_Hooked") then
+            obj:SetAttribute("Reaper_Hooked", true)
+            obj:GetAttributeChangedSignal("RepairProgress"):Connect(function() ManageESP(obj) end)
+            obj:GetAttributeChangedSignal("ProgressRepair"):Connect(function() ManageESP(obj) end)
+        end
+    end
+    -- [จบส่วนที่เพิ่ม]
+
     if isEnabled then
-        -- ถ้าเปิดอยู่ แต่ยังไม่มี Highlight ให้สร้างใหม่
+        -- Logic เดิมของคุณ 100% (Hook, Gate, Pallet ทำงานผ่านส่วนนี้)
         if not Object_Highlights[obj] or not Object_Highlights[obj].Parent then
             local highlight = Instance.new("Highlight")
             highlight.Name = "Reaper_ObjESP"
@@ -762,10 +779,10 @@ local function ManageESP(obj)
         end
         Object_Highlights[obj].Enabled = true
     else
-        -- ถ้าปิดอยู่ ให้ลบทิ้งทันทีเพื่อประหยัด Memory และป้องกันอาการค้าง
         ClearESP(obj)
     end
 end
+
 
 -- ฟังก์ชันสแกน
 local function RefreshType(typeName)
@@ -786,13 +803,17 @@ Tabs.Object:AddToggle("GenESP", {
     Default = false,
     Callback = function(v)
         Object_Config.Generator = v
-        if v then RefreshType("Generator") else
+        if v then 
+            RefreshType("Generator") 
+        else
+            -- ลบเฉพาะ Highlight ของ Generator เมื่อปิด (ส่วนเดิมของคุณ)
             for obj, _ in pairs(Object_Highlights) do
                 if OBJ_MAPPING[obj.Name:lower()] == "Generator" then ClearESP(obj) end
             end
         end
     end
 })
+
 
 Tabs.Object:AddToggle("HookESP", {
     Title = "ESP Hook",
