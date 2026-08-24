@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 10
+-- 🔥 Lib Load Screen Reaper Hub 11
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -236,7 +236,7 @@ local function getSilentTarget()
     local root = getRoot()
     if not root then return nil end
     
-    local center = ScreenCenter or Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     local best, bestDist = nil, (SilentAim.ShowFOV and SilentAim.FOV or math.huge)
 
     for _, p in ipairs(Players:GetPlayers()) do
@@ -244,6 +244,7 @@ local function getSilentTarget()
         local hum = p.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then continue end
 
+        -- Team Validation
         local isKiller = (p.Team and p.Team.Name == "Killer") or p.Name:find("SCP")
         local isSurvivor = (p.Team and p.Team.Name == "Survivors")
         local valid = false
@@ -270,20 +271,22 @@ local function getSilentTarget()
     return best
 end
 
--- [[ HOOKING SYSTEM - แก้ไขให้ปลอดภัยที่สุด ]]
+-- [[ NEW STABLE HOOKING SYSTEM ]]
+-- ใช้ pcall เพื่อป้องกันการเด้ง และ Hook เฉพาะเจาะจงที่ Workspace
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
     
-    -- เงื่อนไขสำคัญ: ต้องเปิดใช้งาน และ ต้องเป็นการกดคลิกซ้าย (MouseButton1) เท่านั้นถึงจะเริ่มทำงาน
+    -- กรองเฉพาะกรณีที่จำเป็นจริงๆ: เปิดใช้งาน/กดคลิกซ้าย/ไม่ใช่ Executor เรียกเอง
     if SilentAim.Enabled and not checkcaller() and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        if method == "Raycast" or method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
-            local target = getSilentTarget()
+        -- ดักจับเฉพาะ Method การยิงที่พบบ่อย
+        if (method == "Raycast" or method == "FindPartOnRayWithIgnoreList") then
+            local success, target = pcall(getSilentTarget) -- ใช้ pcall ห่อหุ้มป้องกัน Error
             
-            if target and target:IsA("BasePart") then
-                -- ถ้าเป็น Raycast (ระบบใหม่)
+            if success and target and target:IsA("BasePart") then
                 if method == "Raycast" then
+                    -- ส่งค่า RaycastResult จำลองกลับไป
                     return {
                         Instance = target,
                         Position = target.Position,
@@ -291,9 +294,9 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                         Normal = Vector3.new(0, 1, 0),
                         Distance = (target.Position - args[1]).Magnitude
                     }
+                elseif method == "FindPartOnRayWithIgnoreList" then
+                    return target, target.Position, Vector3.new(0, 1, 0), target.Material
                 end
-                -- ถ้าเป็น FindPartOnRay (ระบบเก่า)
-                return target, target.Position, Vector3.new(0, 1, 0), target.Material
             end
         end
     end
@@ -339,6 +342,7 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 end)
+
 
 
 
