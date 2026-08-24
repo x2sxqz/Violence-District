@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 8
+-- 🔥 Lib Load Screen Reaper Hub 9
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -40,6 +40,7 @@ local lp = LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+
 
 
 local Window = Fluent:CreateWindow({
@@ -211,6 +212,146 @@ end)
 
 
 --Main
+--Aimsilent
+local SilentAim = {
+    Enabled = false,
+    ShowFOV = false,
+    FOV = 250,
+    Distance = 1000,
+    TargetPart = "HumanoidRootPart",
+    TargetMode = "Survivor"
+}
+
+-- [[ FOV OBJECT ]]
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+-- [[ HELPER FUNCTIONS ]]
+local function getRoot()
+    return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getSilentTarget()
+    local root = getRoot()
+    if not root then return nil end
+    
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local best, bestDist = nil, math.huge
+    local currentLimit = SilentAim.ShowFOV and SilentAim.FOV or math.huge
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p == LocalPlayer or not p.Character then continue end
+        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then continue end
+
+        -- Team Validation
+        local isKiller = (p.Team and p.Team.Name == "Killer") or p.Name:find("SCP") or p:FindFirstChild("IsKiller")
+        local isSurvivor = (p.Team and p.Team.Name == "Survivors") or p:FindFirstChild("IsSurvivor")
+        local valid = false
+        
+        if SilentAim.TargetMode == "Killer" and isKiller then valid = true
+        elseif SilentAim.TargetMode == "Survivor" and isSurvivor then valid = true end
+        
+        if not valid then continue end
+
+        local part = p.Character:FindFirstChild(SilentAim.TargetPart) or p.Character:FindFirstChild("HumanoidRootPart")
+        if not part then continue end
+
+        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+        if onScreen then
+            local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+            if distFromCenter <= currentLimit and distFromCenter < bestDist then
+                if (part.Position - root.Position).Magnitude <= SilentAim.Distance then
+                    bestDist = distFromCenter
+                    best = part
+                end
+            end
+        end
+    end
+    return best
+end
+
+-- [[ HOOKING SYSTEM ]]
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if SilentAim.Enabled and not checkcaller() then
+        if method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" or method == "Raycast" then
+            local target = getSilentTarget()
+            if target then
+                if method == "Raycast" then
+                    return {
+                        Instance = target,
+                        Position = target.Position,
+                        Material = target.Material,
+                        Normal = Vector3.new(0, 1, 0),
+                        Distance = (target.Position - args[1]).Magnitude
+                    }
+                end
+                return target, target.Position, Vector3.new(0, 1, 0), target.Material
+            end
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+
+Tabs.Main:AddToggle("SilentAim", {
+    Title = "Enable Aim Silent",
+    Default = SilentAim.Enabled,
+    Callback = function(v)
+        SilentAim.Enabled = v
+    end
+})
+
+Tabs.Main:AddDropdown("TargetMode", {
+    Title = "Select Target",
+    Values = {"Killer", "Survivor"},
+    Multi = false,
+    Default = SilentAim.TargetMode,
+    Callback = function(v)
+        SilentAim.TargetMode = v
+    end
+})
+
+Tabs.Main:AddToggle("ShowFOV", {
+    Title = "Show FOV Circle",
+    Default = SilentAim.ShowFOV,
+    Callback = function(v)
+        SilentAim.ShowFOV = v
+    end
+})
+
+Tabs.Main:AddSlider("FOVSlider", {
+    Title = "FOV Radius",
+    Description = "",
+    Default = 50,
+    Min = 1,
+    Max = 90,
+    Rounding = 0,
+    Callback = function(v)
+        SilentAim.FOV = v * 5
+    end
+})
+
+-- [[ VISUAL LOOP ]]
+RunService.RenderStepped:Connect(function()
+    if SilentAim.ShowFOV then
+        FOVCircle.Visible = true
+        FOVCircle.Radius = SilentAim.FOV
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FOVCircle.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1) 
+    else
+        FOVCircle.Visible = false
+    end
+end)
+
+
+--skillcheck
 if _G.HyperX_Loop then _G.HyperX_Loop:Disconnect() end
 
 local Config = {
