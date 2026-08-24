@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 11
+-- 🔥 Lib Load Screen Reaper Hub 12
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -213,7 +213,7 @@ end)
 
 --Main
 --Aimsilent
-local SilentAim = {
+    local SilentAim = {
     Enabled = false,
     ShowFOV = false,
     FOV = 250,
@@ -224,18 +224,10 @@ local SilentAim = {
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 2
-FOVCircle.Filled = false
 FOVCircle.Visible = false
 
--- [[ HELPER FUNCTIONS ]]
-local function getRoot()
-    return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-end
-
+-- [[ HELPER: หาเป้าหมาย ]]
 local function getSilentTarget()
-    local root = getRoot()
-    if not root then return nil end
-    
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     local best, bestDist = nil, (SilentAim.ShowFOV and SilentAim.FOV or math.huge)
 
@@ -246,12 +238,7 @@ local function getSilentTarget()
 
         -- Team Validation
         local isKiller = (p.Team and p.Team.Name == "Killer") or p.Name:find("SCP")
-        local isSurvivor = (p.Team and p.Team.Name == "Survivors")
-        local valid = false
-        
-        if SilentAim.TargetMode == "Killer" and isKiller then valid = true
-        elseif SilentAim.TargetMode == "Survivor" and isSurvivor then valid = true end
-        
+        local valid = (SilentAim.TargetMode == "Killer" and isKiller) or (SilentAim.TargetMode == "Survivor" and not isKiller)
         if not valid then continue end
 
         local part = p.Character:FindFirstChild(SilentAim.TargetPart) or p.Character:FindFirstChild("HumanoidRootPart")
@@ -261,67 +248,60 @@ local function getSilentTarget()
         if onScreen then
             local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
             if distFromCenter <= bestDist then
-                if (part.Position - root.Position).Magnitude <= SilentAim.Distance then
-                    bestDist = distFromCenter
-                    best = part
-                end
+                bestDist = distFromCenter
+                best = part
             end
         end
     end
     return best
 end
 
--- [[ NEW STABLE HOOKING SYSTEM ]]
--- ใช้ pcall เพื่อป้องกันการเด้ง และ Hook เฉพาะเจาะจงที่ Workspace
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    -- กรองเฉพาะกรณีที่จำเป็นจริงๆ: เปิดใช้งาน/กดคลิกซ้าย/ไม่ใช่ Executor เรียกเอง
+-- [[ HOOKING: เปลี่ยนทิศทาง Ray แทนการปลอมค่า Result ]]
+-- วิธีนี้เสถียรที่สุด เพราะเราส่ง Ray ของจริงที่หันหน้าไปหาศัตรูให้เกมประมวลผลเอง
+local oldRaycast
+oldRaycast = hookfunction(workspace.Raycast, function(self, origin, direction, params)
     if SilentAim.Enabled and not checkcaller() and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        -- ดักจับเฉพาะ Method การยิงที่พบบ่อย
-        if (method == "Raycast" or method == "FindPartOnRayWithIgnoreList") then
-            local success, target = pcall(getSilentTarget) -- ใช้ pcall ห่อหุ้มป้องกัน Error
-            
-            if success and target and target:IsA("BasePart") then
-                if method == "Raycast" then
-                    -- ส่งค่า RaycastResult จำลองกลับไป
-                    return {
-                        Instance = target,
-                        Position = target.Position,
-                        Material = target.Material,
-                        Normal = Vector3.new(0, 1, 0),
-                        Distance = (target.Position - args[1]).Magnitude
-                    }
-                elseif method == "FindPartOnRayWithIgnoreList" then
-                    return target, target.Position, Vector3.new(0, 1, 0), target.Material
-                end
-            end
+        local target = getSilentTarget()
+        if target then
+            -- คำนวณทิศทางใหม่จากจุดยิงไปหาเป้าหมาย
+            local newDirection = (target.Position - origin).Unit * direction.Magnitude
+            return oldRaycast(self, origin, newDirection, params)
         end
     end
-    
-    return oldNamecall(self, ...)
+    return oldRaycast(self, origin, direction, params)
 end)
 
--- [[ UI ELEMENTS ]]
+-- ดักจับระบบเก่า (FindPartOnRay)
+local oldFindPart
+oldFindPart = hookfunction(workspace.FindPartOnRayWithIgnoreList, function(self, ray, ignore, ...)
+    if SilentAim.Enabled and not checkcaller() and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        local target = getSilentTarget()
+        if target then
+            -- สร้าง Ray ใหม่ที่พุ่งไปหาเป้าหมาย
+            local newRay = Ray.new(ray.Origin, (target.Position - ray.Origin).Unit * ray.Size)
+            return oldFindPart(self, newRay, ignore, ...)
+        end
+    end
+    return oldFindPart(self, ray, ignore, ...)
+end)
+
+-- [[ UI ELEMENTS (Fluent UI) ]]
 Tabs.Main:AddToggle("SilentAim", {
     Title = "Enable Aim Silent",
-    Default = SilentAim.Enabled,
+    Default = false,
     Callback = function(v) SilentAim.Enabled = v end
 })
 
 Tabs.Main:AddDropdown("TargetMode", {
     Title = "Select Target",
     Values = {"Killer", "Survivor"},
-    Multi = false,
-    Default = SilentAim.TargetMode,
+    Default = "Survivor",
     Callback = function(v) SilentAim.TargetMode = v end
 })
 
 Tabs.Main:AddToggle("ShowFOV", {
     Title = "Show FOV Circle",
-    Default = SilentAim.ShowFOV,
+    Default = false,
     Callback = function(v) SilentAim.ShowFOV = v end
 })
 
@@ -342,6 +322,7 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 end)
+
 
 
 
