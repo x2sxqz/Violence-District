@@ -222,7 +222,6 @@ local SilentAim = {
     TargetMode = "Survivor"
 }
 
--- [[ FOV OBJECT ]]
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 2
 FOVCircle.Filled = false
@@ -246,7 +245,7 @@ local function getSilentTarget()
         local hum = p.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then continue end
 
-        -- Team Validation
+        -- Team Validation (ตรวจสอบทีม)
         local isKiller = (p.Team and p.Team.Name == "Killer") or p.Name:find("SCP") or p:FindFirstChild("IsKiller")
         local isSurvivor = (p.Team and p.Team.Name == "Survivors") or p:FindFirstChild("IsSurvivor")
         local valid = false
@@ -273,16 +272,17 @@ local function getSilentTarget()
     return best
 end
 
--- [[ HOOKING SYSTEM ]]
+-- [[ HOOKING SYSTEM (FIXED) ]]
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
     
-    if SilentAim.Enabled and not checkcaller() then
+    -- แก้ไข: เพิ่มการเช็ค IsMouseButtonPressed เพื่อไม่ให้กวนระบบซ่อมเครื่อง
+    if SilentAim.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and not checkcaller() then
         if method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" or method == "Raycast" then
             local target = getSilentTarget()
-            if target then
+            if target and target:IsA("BasePart") then
                 if method == "Raycast" then
                     return {
                         Instance = target,
@@ -299,7 +299,7 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
-
+-- [[ UI ]]
 Tabs.Main:AddToggle("SilentAim", {
     Title = "Enable Aim Silent",
     Default = SilentAim.Enabled,
@@ -328,10 +328,8 @@ Tabs.Main:AddToggle("ShowFOV", {
 
 Tabs.Main:AddSlider("FOVSlider", {
     Title = "FOV Radius",
-    Description = "",
     Default = 50,
-    Min = 1,
-    Max = 90,
+    Min = 1, Max = 90,
     Rounding = 0,
     Callback = function(v)
         SilentAim.FOV = v * 5
@@ -349,6 +347,7 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Visible = false
     end
 end)
+
 
 
 --skillcheck
