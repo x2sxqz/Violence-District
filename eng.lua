@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 13
+-- 🔥 Lib Load Screen Reaper Hub 14
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -213,14 +213,15 @@ end)
 
 --Main
 --Aimsilent
--- [[ 1. SILENT AIM CONFIGURATION ]]
+-- [[ 1. SILENT AIM CONFIGURATION (Survivor Default) ]]
 local SilentAim = {
     Enabled = false,
     ShowFOV = false,
     FOV = 200,
     Distance = 500,
     TargetPart = "HumanoidRootPart",
-    TargetMode = "Survivor" -- ค่าเริ่มต้นเป็น Survivor
+    TargetMode = "Survivor", -- ตั้งเป็น Survivor ตามสั่ง
+    PredictStrength = 0.15
 }
 
 local FOVCircle = Drawing.new("Circle")
@@ -228,7 +229,7 @@ FOVCircle.Visible = false
 FOVCircle.Thickness = 2
 FOVCircle.Filled = false
 
--- ระบบวาดวงกลมสีรุ้ง (Rainbow FOV)
+-- ระบบ FOV สีรุ้ง (Rainbow)
 RunService.RenderStepped:Connect(function()
     if SilentAim.ShowFOV then
         FOVCircle.Visible = true
@@ -240,25 +241,23 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- [[ 2. SILENT AIM LOGIC ]]
+-- [[ 2. SMART TARGET SELECTOR ]]
 local function getSilentTarget()
     local root = getRoot()
     if not root then return nil end
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local best, bestDist = nil, (SilentAim.ShowFOV and SilentAim.FOV or math.huge) -- ถ้าไม่เปิด FOV จะล็อคทั้งจอ
+    local best, bestDist = nil, (SilentAim.ShowFOV and SilentAim.FOV or math.huge) -- ถ้าปิดวงกลม ล็อคทั้งหน้าจอ
 
     for _, p in ipairs(Players:GetPlayers()) do
         if p == LocalPlayer or not p.Character then continue end
         local hum = p.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then continue end
 
-        -- Team Validation
-        local isKiller = (p.Team and p.Team.Name == "Killer") or p.Name:find("SCP")
-        local isSurvivor = (p.Team and (p.Team.Name == "Survivors" or p.Team.Name == "Survivor"))
-        
+        -- ระบบเช็คทีม (Survivor/Killer/SCP)
         local valid = false
-        if SilentAim.TargetMode == "Killer" and isKiller then valid = true
-        elseif SilentAim.TargetMode == "Survivor" and isSurvivor then valid = true 
+        local teamName = p.Team and p.Team.Name or ""
+        if SilentAim.TargetMode == "Killer" and (teamName == "Killer" or p.Name:find("SCP")) then valid = true
+        elseif SilentAim.TargetMode == "Survivor" and (teamName == "Survivors" or teamName == "Survivor") then valid = true
         elseif SilentAim.TargetMode == "SCP" and p.Name:find("SCP") then valid = true end
         
         if not valid then continue end
@@ -280,16 +279,16 @@ local function getSilentTarget()
     return best
 end
 
--- [[ 3. STABLE HOOKING SYSTEM ]]
+-- [[ 3. THE STABLE HOOK (Anti-Crash & Mobile Support) ]]
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
     
-    -- เงื่อนไข: ต้องเปิดใช้งาน / ไม่ใช่ Executor เรียก / มีการกดคลิกซ้ายหรือแตะหน้าจอ (รองรับมือถือ)
+    -- กรองการคลิก: ต้องกดคลิกซ้ายหรือแตะหน้าจอมือถือเท่านั้น (แก้บัคเครื่องปั่นไฟ)
     if SilentAim.Enabled and not checkcaller() and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         if method == "Raycast" or method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
-            -- ป้องกันการเด้ง: กรองระบบ Camera/Popper ออกจากการ Hook
+            -- กรองระบบ Camera: ป้องกันเกมเด้ง
             local s = tostring(self)
             if not (s:find("Camera") or s:find("Popper") or s:find("Zoom")) then
                 local target = getSilentTarget()
@@ -311,7 +310,7 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
-
+-- เพิ่มฟังชั่นก์ใน Main Tab
 Tabs.Main:AddToggle("SilentAimEnabled", {
     Title = "Enable Aim Silent",
     Default = false,
