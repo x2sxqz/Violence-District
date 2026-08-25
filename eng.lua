@@ -1,5 +1,5 @@
 --=========================
--- 🔥 Lib Load Screen Reaper Hub 17
+-- 🔥 Lib Load Screen Reaper Hub 16
 --=========================
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
@@ -672,7 +672,7 @@ RunService.RenderStepped:Connect(function()
             ESP.Billboard.Parent = Character:FindFirstChild("Head") or Root
             
             local NameTag = _G.NameESPEnabled and Player.Name or ""
-            local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[%dm]</font>", math.floor(Distance)) or ""
+            local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[ %dm ]</font>", math.floor(Distance)) or ""
             
             ESP.NameLabel.Text = NameTag .. DistTag
             -- ปรับขนาดตัวอักษรตามระยะทาง (ยิ่งไกลยิ่งเล็ก)
