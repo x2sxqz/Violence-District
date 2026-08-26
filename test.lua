@@ -1,6 +1,6 @@
---7
+--8
 -- ========================================================
--- [STANDALONE] HYPERX AUTO PARRY - DUAL UI EDITION
+-- [STANDALONE] HYPERX AUTO PARRY - STABLE ITEM INTERACTION
 -- ========================================================
 
 local Players = game:GetService("Players")
@@ -15,16 +15,17 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- ============== CONFIG & STATE ==============
 local Config = {
     Enabled = false,
-    Radius = 12,
+    Radius = 16,
     FaceSensitivity = 0.7,
-    Aggressive = false
+    Aggressive = false,
+    RingThickness = 0.12 -- ความบางของเส้นรอบตัว
 }
 
 local State = {
     Cooldown = false,
     CD_Time = 0,
-    Adornment = nil,
-    Attached = {}
+    Attached = {},
+    Adornment = nil
 }
 
 local VALID_PARRY_IDS = {
@@ -41,83 +42,80 @@ local VALID_PARRY_IDS = {
     ["98163597193511"] = "Hidden S1", ["80411309607666"] = "Abyssal S1"
 }
 
--- ============== DRAG FUNCTION ==============
-local function MakeDraggable(obj)
-    local dragging, dragStart, startPos
-    obj.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = obj.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local delta = i.Position - dragStart
-            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function() dragging = false end)
-end
-
 -- ============== UI: NOTIFICATION ==============
 local function NotifySuccess()
     task.spawn(function()
         local sg = Instance.new("ScreenGui", PlayerGui)
         local lbl = Instance.new("TextLabel", sg)
-        lbl.Size = UDim2.new(0, 400, 0, 50); lbl.Position = UDim2.new(0.5, -200, 0.3, 0)
-        lbl.BackgroundTransparency = 1; lbl.Text = "⚡ PARRY SUCCESS ⚡"
-        lbl.TextColor3 = Color3.fromRGB(0, 255, 255); lbl.Font = "GothamBlack"; lbl.TextSize = 28
-        lbl.TextStrokeTransparency = 0
+        lbl.Size = UDim2.new(0, 400, 0, 70); lbl.Position = UDim2.new(0.5, -200, 0.3, 0)
+        lbl.BackgroundTransparency = 1; lbl.Text = "⚡ PARRY SUCCESS ⚡"; lbl.TextColor3 = Color3.fromRGB(0, 255, 255)
+        lbl.Font = "GothamBlack"; lbl.TextSize = 30; lbl.TextStrokeTransparency = 0
         local t = TweenService:Create(lbl, TweenInfo.new(0.8, Enum.EasingStyle.Quart), {Position = UDim2.new(0.5, -200, 0.2, 0), TextTransparency = 1, TextStrokeTransparency = 1})
         t:Play(); t.Completed:Connect(function() sg:Destroy() end)
     end)
 end
 
--- ============== UI: DUAL PANEL SETUP ==============
+-- ============== UI: DUAL DRAGGABLE UI ==============
 local MainGui = Instance.new("ScreenGui", PlayerGui)
-MainGui.Name = "HyperX_ParrySystem"; MainGui.ResetOnSpawn = false
+MainGui.Name = "HyperX_StableParry"; MainGui.ResetOnSpawn = false
 
 -- 1. ปุ่มเปิด-ปิด (Toggle Button)
 local ToggleBtn = Instance.new("TextButton", MainGui)
-ToggleBtn.Size = UDim2.new(0, 120, 0, 40); ToggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); ToggleBtn.Text = "PARRY: OFF"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 60, 60); ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 12
-local BtnCorner = Instance.new("UICorner", ToggleBtn); BtnCorner.CornerRadius = UDim.new(0, 8)
-local BtnStroke = Instance.new("UIStroke", ToggleBtn); BtnStroke.Thickness = 2; BtnStroke.Color = Color3.fromRGB(255, 60, 60)
-MakeDraggable(ToggleBtn)
+ToggleBtn.Size = UDim2.new(0, 130, 0, 45); ToggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); ToggleBtn.Text = "AUTO PARRY: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 70, 70); ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 13
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
+local BtnStroke = Instance.new("UIStroke", ToggleBtn); BtnStroke.Thickness = 2; BtnStroke.Color = Color3.fromRGB(255, 70, 70)
 
 -- 2. แผงสถานะ (Status Panel)
 local StatusFrame = Instance.new("Frame", MainGui)
-StatusFrame.Size = UDim2.new(0, 160, 0, 80); StatusFrame.Position = UDim2.new(0.05, 0, 0.5, 0)
+StatusFrame.Size = UDim2.new(0, 180, 0, 100); StatusFrame.Position = UDim2.new(0.05, 0, 0.5, 0)
 StatusFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); StatusFrame.BorderSizePixel = 0
-local FrameCorner = Instance.new("UICorner", StatusFrame); FrameCorner.CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", StatusFrame).CornerRadius = UDim.new(0, 10)
 local FrameStroke = Instance.new("UIStroke", StatusFrame); FrameStroke.Thickness = 1.5; FrameStroke.Color = Color3.fromRGB(60, 60, 60)
-MakeDraggable(StatusFrame)
 
 local function CreateLbl(parent, pos, color, size)
     local l = Instance.new("TextLabel", parent)
-    l.Size = UDim2.new(1, -20, 0, 18); l.Position = pos; l.BackgroundTransparency = 1
-    l.TextColor3 = color; l.Font = "GothamBold"; l.TextSize = size or 11; l.TextXAlignment = "Left"
+    l.Size = UDim2.new(1, -20, 0, 20); l.Position = pos; l.BackgroundTransparency = 1
+    l.TextColor3 = color; l.Font = "GothamBold"; l.TextSize = size or 12; l.TextXAlignment = "Left"
     return l
 end
 
-local StatLbl = CreateLbl(StatusFrame, UDim2.new(0, 10, 0, 12), Color3.new(1,0,0), 12)
-local CDLbl = CreateLbl(StatusFrame, UDim2.new(0, 10, 0, 32), Color3.new(1,1,1))
-local DistLbl = CreateLbl(StatusFrame, UDim2.new(0, 10, 0, 52), Color3.new(0.8,0.8,0.8))
+local StatLbl = CreateLbl(StatusFrame, UDim2.new(0, 10, 0, 12), Color3.new(1,0,0), 13)
+local CDLbl = CreateLbl(StatusFrame, UDim2.new(0, 10, 0, 40), Color3.new(1,1,1))
+local DistLbl = CreateLbl(StatusFrame, UDim2.new(0, 10, 0, 68), Color3.new(0.8,0.8,0.8))
 
--- ============== CORE: EXECUTION ==============
+-- ระบบลาก UI (Re-usable)
+local function Drag(obj)
+    local dragging, dragS, startP
+    obj.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true; dragS = i.Position; startP = obj.Position end end)
+    UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then local d = i.Position - dragS; obj.Position = UDim2.new(startP.X.Scale, startP.X.Offset + d.X, startP.Y.Scale, startP.Y.Offset + d.Y) end end)
+    UserInputService.InputEnded:Connect(function() dragging = false end)
+end
+Drag(ToggleBtn); Drag(StatusFrame)
+
+-- ============== CORE: STABLE EXECUTION (ใช้ไอเท็มจริง) ==============
 local function Execute()
     if State.Cooldown then return end
     local char = LocalPlayer.Character
-    local dagger = char and (char:FindFirstChild("Parrying Dagger") or LocalPlayer.Backpack:FindFirstChild("Parrying Dagger"))
+    -- ค้นหาไอเท็มดาบในตัวหรือกระเป๋า
+    local dagger = char:FindFirstChild("Parrying Dagger") or LocalPlayer.Backpack:FindFirstChild("Parrying Dagger")
+    
     pcall(function()
+        -- 1. สั่ง Activate ไอเท็มเพื่อให้แอนิเมชั่นดาบกางออกมาจริง
+        if dagger and dagger:IsA("Tool") then
+            dagger:Activate() 
+        end
+        -- 2. ส่ง Remote ย้ำเพื่อความมั่นใจในฝั่ง Server
         local remote = ReplicatedStorage:FindFirstChild("Remotes"):FindFirstChild("Items"):FindFirstChild("Parrying Dagger"):FindFirstChild("parry")
-        if remote then for i = 1, 8 do remote:FireServer() end end
-        if dagger and dagger:IsA("Tool") then dagger:Activate() end
+        if remote then 
+            for i = 1, 5 do remote:FireServer() end 
+        end
         NotifySuccess()
     end)
 end
 
--- ============== SENSOR & LOGIC ==============
+-- ============== CORE: SENSOR ==============
 local function Attach(kChar)
     if not kChar or State.Attached[kChar] then return end
     local anim = kChar:WaitForChild("Humanoid", 10):WaitForChild("Animator", 10)
@@ -141,19 +139,17 @@ local function Attach(kChar)
     end)
 end
 
--- ============== UPDATER LOOP ==============
+-- ============== UPDATER & VISUALS ==============
 RunService.Heartbeat:Connect(function()
-    -- Sync UI Text & Button
-    ToggleBtn.Text = "PARRY: " .. (Config.Enabled and "ON" or "OFF")
-    ToggleBtn.TextColor3 = Config.Enabled and Color3.fromRGB(80, 255, 150) or Color3.fromRGB(255, 60, 60)
+    ToggleBtn.Text = "AUTO PARRY: " .. (Config.Enabled and "ON" or "OFF")
+    ToggleBtn.TextColor3 = Config.Enabled and Color3.fromRGB(80, 255, 150) or Color3.fromRGB(255, 70, 70)
     BtnStroke.Color = ToggleBtn.TextColor3
-    
+
     StatLbl.Text = "SYSTEM: " .. (Config.Enabled and "ACTIVE" or "DISABLED")
     StatLbl.TextColor3 = ToggleBtn.TextColor3
-    CDLbl.Text = State.Cooldown and string.format("COOLDOWN: %.1fs", State.CD_Time) or "COOLDOWN: READY"
+    CDLbl.Text = State.Cooldown and string.format("CD: %.1fs", State.CD_Time) or "CD: READY"
     CDLbl.TextColor3 = State.Cooldown and Color3.fromRGB(255, 150, 0) or Color3.fromRGB(80, 255, 150)
 
-    -- Update Killer Dist & Sensor
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     local closest = 999
     for _, p in pairs(Players:GetPlayers()) do
@@ -174,18 +170,15 @@ RunService.Heartbeat:Connect(function()
         if not State.Adornment or State.Adornment.Parent ~= root then
             if State.Adornment then State.Adornment:Destroy() end
             State.Adornment = Instance.new("CylinderHandleAdornment", root)
-            State.Adornment.Height = 0.05; State.Adornment.Transparency = 0.25; State.Adornment.Adornee = root
+            State.Adornment.Height = 0.05; State.Adornment.Transparency = 0.3; State.Adornment.Adornee = root
         end
-        State.Adornment.Radius = Config.Radius; State.Adornment.InnerRadius = Config.Radius - 0.15
+        State.Adornment.Radius = Config.Radius; State.Adornment.InnerRadius = Config.Radius - Config.RingThickness
         State.Adornment.CFrame = CFrame.new(0, -2.8, 0) * CFrame.Angles(math.rad(90), 0, 0)
         State.Adornment.Color3 = State.Cooldown and Color3.fromRGB(255, 130, 0) or (Config.Aggressive and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 255))
     elseif State.Adornment then State.Adornment:Destroy(); State.Adornment = nil end
 end)
 
--- Button Toggle Event
-ToggleBtn.MouseButton1Click:Connect(function()
-    Config.Enabled = not Config.Enabled
-end)
+ToggleBtn.MouseButton1Click:Connect(function() Config.Enabled = not Config.Enabled end)
 
 -- Cooldown Listener
 task.spawn(function()
@@ -198,4 +191,4 @@ task.spawn(function()
     end)
 end)
 
-print("HyperX Standalone Dual-UI Parry Loaded.")
+print("HyperX Stable Auto Parry Standalone Loaded.")
