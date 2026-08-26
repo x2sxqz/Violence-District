@@ -1,4 +1,4 @@
---6
+--7
 -- ========================================================
 -- [STANDALONE] HYPERX AUTO PARRY - DUAL UI EDITION
 -- ========================================================
@@ -15,7 +15,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- ============== CONFIG & STATE ==============
 local Config = {
     Enabled = false,
-    Radius = 16,
+    Radius = 12,
     FaceSensitivity = 0.7,
     Aggressive = false
 }
