@@ -1,17 +1,27 @@
---1
-local Players = game:GetService("Players")
+--2local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- SETTINGS
-local AutoParryEnabled = false
-local ParryRadius = 15
-local ParryFaceSensitivity = 0.7 -- 0.1 to 1.0
+-- ============== CONFIGURATION ==============
+local Config = {
+    Enabled = false,
+    Radius = 15,          -- ระยะทำงาน (ปรับได้)
+    FaceSensitivity = 0.7, -- ความไวการหันหน้า
+    Aggressive = false,   -- โหมดโหด (ไม่สนทิศทาง)
+    ShowCircle = true     -- เปิด/ปิด วงกลมที่พื้น
+}
+
+local State = {
+    Cooldown = false,
+    Adornment = nil,
+    Attached = {}
+}
 
 local VALID_PARRY_IDS = {
     ["122812055447896"] = "Veil lunge", ["133963973694098"] = "Mayers Basic",
@@ -27,120 +37,130 @@ local VALID_PARRY_IDS = {
     ["98163597193511"] = "Hidden S1", ["80411309607666"] = "Abyssal S1"
 }
 
-local ParryState = { Cooldown = false, Attached = {} }
+-- ============== UI NOTIFICATION ==============
+local function NotifyParry()
+    task.spawn(function()
+        local gui = Instance.new("ScreenGui", PlayerGui)
+        local lbl = Instance.new("TextLabel", gui)
+        lbl.Size = UDim2.new(0, 300, 0, 50)
+        lbl.Position = UDim2.new(0.5, -150, 0.4, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "⚡ PARRY SUCCESS ⚡"
+        lbl.TextColor3 = Color3.fromRGB(0, 255, 255)
+        lbl.Font = Enum.Font.GothamBlack
+        lbl.TextSize = 25
+        lbl.TextStrokeTransparency = 0
+        
+        local t = TweenService:Create(lbl, TweenInfo.new(0.6), {Position = UDim2.new(0.5, -150, 0.3, 0), TextTransparency = 1, TextStrokeTransparency = 1})
+        t:Play()
+        t.Completed:Connect(function() gui:Destroy() end)
+    end)
+end
 
--- FUNCTIONS
+-- ============== PARRY EXECUTION ==============
 local function ExecuteParry()
-    if ParryState.Cooldown then return end
+    if State.Cooldown then return end
     pcall(function()
-        local parryRemote = ReplicatedStorage:FindFirstChild("Remotes"):FindFirstChild("Items"):FindFirstChild("Parrying Dagger"):FindFirstChild("parry")
-        if parryRemote then
-            for i = 1, 5 do parryRemote:FireServer() end
+        local remote = ReplicatedStorage:FindFirstChild("Remotes"):FindFirstChild("Items"):FindFirstChild("Parrying Dagger"):FindFirstChild("parry")
+        if remote then 
+            for i = 1, 10 do remote:FireServer() end 
+            NotifyParry()
         end
-        -- Simulating Button Press
         VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0)
         task.wait(0.01)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
     end)
 end
 
-local function AttachParrySensor(kChar)
-    if not kChar or ParryState.Attached[kChar] then return end
-    local animator = kChar:WaitForChild("Humanoid"):WaitForChild("Animator")
-    ParryState.Attached[kChar] = true
-
+-- ============== SENSOR LOGIC ==============
+local function AttachSensor(kChar)
+    if not kChar or State.Attached[kChar] then return end
+    local hum = kChar:WaitForChild("Humanoid", 10)
+    local animator = hum and hum:WaitForChild("Animator", 10)
+    if not animator then return end
+    
+    State.Attached[kChar] = true
     animator.AnimationPlayed:Connect(function(track)
-        if not AutoParryEnabled or ParryState.Cooldown then return end
+        if not Config.Enabled or State.Cooldown then return end
         local id = track.Animation.AnimationId:match("%d+")
-        if not VALID_PARRY_IDS[id] then return end
+        if not id or not VALID_PARRY_IDS[id] then return end
 
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local kHRP = kChar:FindFirstChild("HumanoidRootPart")
         if not myHRP or not kHRP then return end
 
         local dist = (myHRP.Position - kHRP.Position).Magnitude
-        if dist <= ParryRadius then
-            -- Facing Check
-            local dot = kHRP.CFrame.LookVector:Dot((myHRP.Position - kHRP.Position).Unit)
-            if dot >= ParryFaceSensitivity then
+        if dist <= Config.Radius then
+            if Config.Aggressive then
                 ExecuteParry()
+            else
+                local dot = kHRP.CFrame.LookVector:Dot((myHRP.Position - kHRP.Position).Unit)
+                if dot >= Config.FaceSensitivity then ExecuteParry() end
             end
         end
     end)
 end
 
--- UI CREATION (DRAGGABLE BUTTON)
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-ScreenGui.Name = "AutoParryToggleUI"
+-- ============== DRAGGABLE BUTTON UI ==============
+local MainGui = Instance.new("ScreenGui", PlayerGui)
+MainGui.Name = "HyperX_ParryUI"
+MainGui.ResetOnSpawn = false
 
-local MainButton = Instance.new("TextButton", ScreenGui)
-MainButton.Size = UDim2.new(0, 120, 0, 40)
-MainButton.Position = UDim2.new(0.5, -60, 0.5, -20)
-MainButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-MainButton.Text = "Auto Parry: OFF"
-MainButton.TextColor3 = Color3.new(1, 1, 1)
-MainButton.Font = Enum.Font.GothamBold
-MainButton.TextSize = 14
-MainButton.AutoButtonColor = true
+local Btn = Instance.new("TextButton", MainGui)
+Btn.Size = UDim2.new(0, 130, 0, 45)
+Btn.Position = UDim2.new(0.1, 0, 0.5, 0)
+Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Btn.Text = "PARRY: OFF"
+Btn.TextColor3 = Color3.fromRGB(255, 70, 70)
+Btn.Font = Enum.Font.GothamBold
+Btn.TextSize = 13
+local Corner = Instance.new("UICorner", Btn); Corner.CornerRadius = UDim.new(0, 8)
+local Stroke = Instance.new("UIStroke", Btn); Stroke.Thickness = 2; Stroke.Color = Color3.fromRGB(255, 70, 70)
 
-local UICorner = Instance.new("UICorner", MainButton)
-UICorner.CornerRadius = UDim.new(0, 8)
+-- Dragging Logic
+local dragStart, startPos, dragging
+Btn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = i.Position; startPos = Btn.Position end end)
+UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then local d = i.Position - dragStart; Btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y) end end)
+UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
 
--- DRAGGING LOGIC
-local dragging, dragInput, dragStart, startPos
-MainButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainButton.Position
-    end
+Btn.MouseButton1Click:Connect(function()
+    Config.Enabled = not Config.Enabled
+    Btn.Text = Config.Enabled and "PARRY: ON" or "PARRY: OFF"
+    Btn.TextColor3 = Config.Enabled and Color3.fromRGB(80, 255, 150) or Color3.fromRGB(255, 70, 70)
+    Stroke.Color = Btn.TextColor3
 end)
 
-MainButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-
--- TOGGLE LOGIC
-MainButton.MouseButton1Click:Connect(function()
-    AutoParryEnabled = not AutoParryEnabled
-    if AutoParryEnabled then
-        MainButton.Text = "Auto Parry: ON"
-        MainButton.BackgroundColor3 = Color3.fromRGB(60, 255, 120)
-    else
-        MainButton.Text = "Auto Parry: OFF"
-        MainButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-    end
-end)
-
--- INITIALIZE SENSOR
-local function SetupKillers()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Team and p.Team.Name == "Killer" and p.Character then
-            AttachParrySensor(p.Character)
+-- ============== VISUAL CIRCLE ==============
+RunService.RenderStepped:Connect(function()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if Config.ShowCircle and Config.Enabled and hrp then
+        if not State.Adornment or State.Adornment.Parent ~= hrp then
+            if State.Adornment then State.Adornment:Destroy() end
+            State.Adornment = Instance.new("CylinderHandleAdornment", hrp)
+            State.Adornment.Height = 0.05
+            State.Adornment.Transparency = 0.4
+            State.Adornment.Adornee = hrp
         end
-    end
-end
-
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function(char)
-        task.wait(1)
-        if p.Team and p.Team.Name == "Killer" then AttachParrySensor(char) end
-    end)
+        State.Adornment.Radius = Config.Radius
+        State.Adornment.CFrame = CFrame.new(0, -2.8, 0) * CFrame.Angles(math.rad(90), 0, 0)
+        State.Adornment.Color3 = State.Cooldown and Color3.fromRGB(255, 150, 0) or (Config.Aggressive and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 255))
+    elseif State.Adornment then State.Adornment:Destroy(); State.Adornment = nil end
 end)
 
-RunService.Heartbeat:Connect(SetupKillers)
+-- ============== INITIALIZE ==============
+task.spawn(function()
+    while true do
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Team and p.Team.Name == "Killer" and p.Character then AttachSensor(p.Character) end
+        end
+        task.wait(1)
+    end
+end)
+
+-- Cooldown Listener
+task.spawn(function()
+    local res = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+    res.OnClientEvent:Connect(function(_, cd) State.Cooldown = true; task.wait(tonumber(cd) or 0.6); State.Cooldown = false end)
+end)
+
+print("HyperX: Standalone Auto Parry Loaded Successfully.")
