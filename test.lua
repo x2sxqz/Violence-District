@@ -1,3 +1,4 @@
+--1
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -83,7 +84,7 @@ MainButton.TextSize = 14
 MainButton.AutoButtonColor = true
 
 local UICorner = Instance.new("UICorner", MainButton)
-UICorner.CornerRadius = UDim.new(0, 😎
+UICorner.CornerRadius = UDim.new(0, 8)
 
 -- DRAGGING LOGIC
 local dragging, dragInput, dragStart, startPos
