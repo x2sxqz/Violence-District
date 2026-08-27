@@ -1,5 +1,5 @@
 -- ========================================================
--- [TEST SYSTEM] MANUAL PARRY TESTER (SYNCED COOLDOWN) 2
+-- [HYPERX] MANUAL PARRY TESTER (STABLE VERSION) 3
 -- ========================================================
 
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ local TestState = {
     RemainingCD = 0
 }
 
--- ============== UI CREATION (DRAGGABLE) ==============
+-- ============== UI CREATION ==============
 local TestGui = Instance.new("ScreenGui", PlayerGui)
 TestGui.Name = "ParryTestModule"
 TestGui.ResetOnSpawn = false
@@ -36,7 +36,7 @@ local UIStroke = Instance.new("UIStroke", MainBtn)
 UIStroke.Thickness = 2
 UIStroke.Color = Color3.fromRGB(80, 255, 150)
 
--- ระบบลากปุ่ม
+-- ลากปุ่ม
 local dragging, dragStart, startPos
 MainBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -54,6 +54,8 @@ UserInputService.InputEnded:Connect(function() dragging = false end)
 -- ============== CORE FUNCTIONS ==============
 
 local function UpdateCDUI(duration)
+    if TestState.IsCooldown then return end
+    
     TestState.RemainingCD = tonumber(duration) or 0.6
     TestState.IsCooldown = true
     
@@ -62,8 +64,8 @@ local function UpdateCDUI(duration)
 
     while TestState.RemainingCD > 0 do
         MainBtn.Text = string.format("COOLDOWN: %.1fs", TestState.RemainingCD)
-        task.wait(0.1)
-        TestState.RemainingCD = math.max(0, TestState.RemainingCD - 0.1)
+        task.wait(0.05)
+        TestState.RemainingCD = math.max(0, TestState.RemainingCD - 0.05)
     end
 
     TestState.IsCooldown = false
@@ -73,48 +75,65 @@ local function UpdateCDUI(duration)
 end
 
 local function ExecuteManualParry()
+    -- 1. เช็คคูลดาวน์ทาง UI
     if TestState.IsCooldown then return end
 
     local char = LocalPlayer.Character
-    if not char then return end
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hum or hum.Health <= 0 then return end
 
-    -- ค้นหาไอเท็ม Parrying Dagger ในตัวหรือในกระเป๋า
+    -- 2. หาไอเท็ม
     local dagger = char:FindFirstChild("Parrying Dagger") or LocalPlayer.Backpack:FindFirstChild("Parrying Dagger")
-    
+    if not dagger then return end
+
     pcall(function()
-        -- 1. เรียกใช้ Remote (ส่ง 8 ครั้งตามต้นฉบับ)
-        local remote = ReplicatedStorage:FindFirstChild("Remotes")
-            :FindFirstChild("Items"):FindFirstChild("Parrying Dagger"):FindFirstChild("parry")
-            
-        if remote then
-            for i = 1, 8 do remote:FireServer() end
+        -- 3. บังคับสวมใส่และรอจนกว่าเซิร์ฟเวอร์จะรับทราบ
+        if dagger.Parent ~= char then
+            hum:EquipTool(dagger)
+            local timeout = 0
+            while dagger.Parent ~= char and timeout < 0.3 do
+                timeout = timeout + task.wait()
+            end
         end
 
-        -- 2. บังคับใช้ไอเท็มจริง (เพื่อให้แอนิเมชั่นดาบขึ้น)
-        if dagger and dagger:IsA("Tool") then
-            if dagger.Parent ~= char then
-                char.Humanoid:EquipTool(dagger)
-            end
+        -- 4. หา Remote
+        local remoteFolder = ReplicatedStorage:FindFirstChild("Remotes")
+            :FindFirstChild("Items"):FindFirstChild("Parrying Dagger")
+        
+        local parryRemote = remoteFolder:FindFirstChild("parry")
+
+        if parryRemote then
+            -- สั่งใช้งานแอนิเมชั่นฝั่ง Client ทันที
             dagger:Activate()
+            
+            -- ส่งคำสั่งไปเซิร์ฟเวอร์ (ปรับเหลือ 5 ครั้งเพื่อความสม่ำเสมอ)
+            for i = 1, 5 do
+                parryRemote:FireServer()
+            end
         end
     end)
 end
 
 -- ============== LISTENERS ==============
 
--- ฟังผลจากเซิร์ฟเวอร์เพื่อเริ่มคูลดาวน์จริง
-task.spawn(function()
-    local resRemote = ReplicatedStorage:WaitForChild("Remotes")
-        :WaitForChild("Items"):WaitForChild("Parrying Dagger")
-        :WaitForChild("parryResult")
-        
-    resRemote.OnClientEvent:Connect(function(success, cdTime)
-        UpdateCDUI(cdTime)
-    end)
-end)
-
+-- เชื่อมปุ่มกด
 MainBtn.MouseButton1Click:Connect(function()
     ExecuteManualParry()
 end)
 
-print("HyperX: Parry Test Button Loaded.")
+-- ฟังผลจากเซิร์ฟเวอร์ (ตัวแก้ปัญหาหลัก: คูลดาวน์จะเริ่มเมื่อของทำงานจริงเท่านั้น)
+task.spawn(function()
+    local itemPath = ReplicatedStorage:WaitForChild("Remotes")
+        :WaitForChild("Items"):WaitForChild("Parrying Dagger")
+        
+    local resRemote = itemPath:WaitForChild("parryResult")
+        
+    resRemote.OnClientEvent:Connect(function(success, cdTime)
+        if success then
+            -- เริ่มนับคูลดาวน์เฉพาะเมื่อเซิร์ฟเวอร์ยืนยันว่า Parry ทำงาน
+            UpdateCDUI(cdTime)
+        end
+    end)
+end)
+
+print("HyperX: Manual Parry Synced & Optimized.")
