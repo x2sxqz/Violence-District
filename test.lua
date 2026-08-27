@@ -1,139 +1,124 @@
--- ========================================================
--- [HYPERX] MANUAL PARRY TESTER (STABLE VERSION) 3
--- ========================================================
+-- ==================== HYPERX REMOTE SPY (STANDALONE) ====================
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
--- ============== STATE ==============
-local TestState = {
-    IsCooldown = false,
-    RemainingCD = 0
+-- Configuration
+local IGNORED_REMOTES = {
+    ["UpdateCharacterLook"] = true,
+    ["CharacterLookUpdate"] = true
 }
 
--- ============== UI CREATION ==============
-local TestGui = Instance.new("ScreenGui", PlayerGui)
-TestGui.Name = "ParryTestModule"
-TestGui.ResetOnSpawn = false
+-- GUI Creation
+local SpyGui = Instance.new("ScreenGui")
+SpyGui.Name = "HyperX_RemoteSpy"
+SpyGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+SpyGui.ResetOnSpawn = false
 
-local MainBtn = Instance.new("TextButton", TestGui)
-MainBtn.Size = UDim2.new(0, 160, 0, 50)
-MainBtn.Position = UDim2.new(0.5, -80, 0.2, 0)
-MainBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainBtn.Text = "READY TO PARRY"
-MainBtn.TextColor3 = Color3.fromRGB(80, 255, 150)
-MainBtn.Font = Enum.Font.GothamBold
-MainBtn.TextSize = 14
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 400)
+MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = SpyGui
 
-local UICorner = Instance.new("UICorner", MainBtn)
-UICorner.CornerRadius = UDim.new(0, 10)
+local UICorner = Instance.new("UICorner", MainFrame)
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(60, 60, 60)
 
-local UIStroke = Instance.new("UIStroke", MainBtn)
-UIStroke.Thickness = 2
-UIStroke.Color = Color3.fromRGB(80, 255, 150)
+local Header = Instance.new("TextLabel")
+Header.Size = UDim2.new(1, 0, 0, 30)
+Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Header.Text = " REMOTE SPY - BY HYPERX"
+Header.TextColor3 = Color3.fromRGB(255, 255, 255)
+Header.TextXAlignment = Enum.TextXAlignment.Left
+Header.Font = Enum.Font.GothamBold
+Header.TextSize = 14
+Header.Parent = MainFrame
+Instance.new("UICorner", Header)
 
--- ลากปุ่ม
-local dragging, dragStart, startPos
-MainBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        dragging = true; dragStart = i.Position; startPos = MainBtn.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(i)
-    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-        local delta = i.Position - dragStart
-        MainBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function() dragging = false end)
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -10, 1, -40)
+Scroll.Position = UDim2.new(0, 5, 0, 35)
+Scroll.BackgroundTransparency = 1
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.ScrollBarThickness = 3
+Scroll.Parent = MainFrame
 
--- ============== CORE FUNCTIONS ==============
+local ListLayout = Instance.new("UIListLayout", Scroll)
+ListLayout.Padding = UDim.new(0, 4)
 
-local function UpdateCDUI(duration)
-    if TestState.IsCooldown then return end
-    
-    TestState.RemainingCD = tonumber(duration) or 0.6
-    TestState.IsCooldown = true
-    
-    MainBtn.TextColor3 = Color3.fromRGB(255, 130, 0)
-    UIStroke.Color = Color3.fromRGB(255, 130, 0)
-
-    while TestState.RemainingCD > 0 do
-        MainBtn.Text = string.format("COOLDOWN: %.1fs", TestState.RemainingCD)
-        task.wait(0.05)
-        TestState.RemainingCD = math.max(0, TestState.RemainingCD - 0.05)
-    end
-
-    TestState.IsCooldown = false
-    MainBtn.Text = "READY TO PARRY"
-    MainBtn.TextColor3 = Color3.fromRGB(80, 255, 150)
-    UIStroke.Color = Color3.fromRGB(80, 255, 150)
-end
-
-local function ExecuteManualParry()
-    -- 1. เช็คคูลดาวน์ทาง UI
-    if TestState.IsCooldown then return end
-
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not char or not hum or hum.Health <= 0 then return end
-
-    -- 2. หาไอเท็ม
-    local dagger = char:FindFirstChild("Parrying Dagger") or LocalPlayer.Backpack:FindFirstChild("Parrying Dagger")
-    if not dagger then return end
-
-    pcall(function()
-        -- 3. บังคับสวมใส่และรอจนกว่าเซิร์ฟเวอร์จะรับทราบ
-        if dagger.Parent ~= char then
-            hum:EquipTool(dagger)
-            local timeout = 0
-            while dagger.Parent ~= char and timeout < 0.3 do
-                timeout = timeout + task.wait()
-            end
-        end
-
-        -- 4. หา Remote
-        local remoteFolder = ReplicatedStorage:FindFirstChild("Remotes")
-            :FindFirstChild("Items"):FindFirstChild("Parrying Dagger")
-        
-        local parryRemote = remoteFolder:FindFirstChild("parry")
-
-        if parryRemote then
-            -- สั่งใช้งานแอนิเมชั่นฝั่ง Client ทันที
-            dagger:Activate()
-            
-            -- ส่งคำสั่งไปเซิร์ฟเวอร์ (ปรับเหลือ 5 ครั้งเพื่อความสม่ำเสมอ)
-            for i = 1, 5 do
-                parryRemote:FireServer()
-            end
+-- Draggable Logic
+local function MakeDraggable(obj)
+    local dragging, dragInput, dragStart, startPos
+    obj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = obj.Position
         end
     end)
-end
-
--- ============== LISTENERS ==============
-
--- เชื่อมปุ่มกด
-MainBtn.MouseButton1Click:Connect(function()
-    ExecuteManualParry()
-end)
-
--- ฟังผลจากเซิร์ฟเวอร์ (ตัวแก้ปัญหาหลัก: คูลดาวน์จะเริ่มเมื่อของทำงานจริงเท่านั้น)
-task.spawn(function()
-    local itemPath = ReplicatedStorage:WaitForChild("Remotes")
-        :WaitForChild("Items"):WaitForChild("Parrying Dagger")
-        
-    local resRemote = itemPath:WaitForChild("parryResult")
-        
-    resRemote.OnClientEvent:Connect(function(success, cdTime)
-        if success then
-            -- เริ่มนับคูลดาวน์เฉพาะเมื่อเซิร์ฟเวอร์ยืนยันว่า Parry ทำงาน
-            UpdateCDUI(cdTime)
+    obj.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    end)
+end
+MakeDraggable(MainFrame)
 
-print("HyperX: Manual Parry Synced & Optimized.")
+-- Add Log Function
+local function NewRemoteLog(remote, args)
+    local LogFrame = Instance.new("Frame")
+    LogFrame.Size = UDim2.new(1, -5, 0, 45)
+    LogFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    LogFrame.Parent = Scroll
+    Instance.new("UICorner", LogFrame)
+
+    local NameLabel = Instance.new("TextLabel")
+    NameLabel.Size = UDim2.new(0.65, 0, 1, 0)
+    NameLabel.Position = UDim2.new(0, 10, 0, 0)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Text = remote.Name
+    NameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    NameLabel.TextSize = 12
+    NameLabel.Font = Enum.Font.Gotham
+    NameLabel.Parent = LogFrame
+
+    local RunBtn = Instance.new("TextButton")
+    RunBtn.Size = UDim2.new(0.25, 0, 0, 25)
+    RunBtn.Position = UDim2.new(0.7, 0, 0.5, -12)
+    RunBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+    RunBtn.Text = "RUN"
+    RunBtn.Font = Enum.Font.GothamBold
+    RunBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RunBtn.Parent = LogFrame
+    Instance.new("UICorner", RunBtn)
+
+    RunBtn.MouseButton1Click:Connect(function()
+        if remote:IsA("RemoteEvent") then
+            remote:FireServer(unpack(args))
+        elseif remote:IsA("RemoteFunction") then
+            remote:InvokeServer(unpack(args))
+        end
+    end)
+
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+end
+
+-- Hook Metamethod
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+        if not IGNORED_REMOTES[self.Name] then
+            task.spawn(NewRemoteLog, self, args)
+        end
+    end
+    return oldNamecall(self, ...)
+end)
