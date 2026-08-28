@@ -1,6 +1,6 @@
--- ============== AUTO KILL ALL : FINAL FIXED (NO NIL ERROR) ==============
+-- ============== AUTO KILL ALL : BUG-FIXED EDITION (NO NIL) ==============
 
--- [ 1. ALL REQUIRED SERVICES ]
+-- [ 1. SERVICES ]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
@@ -11,29 +11,36 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local KillActive = false
 
--- [ 3. STABLE TARGETING FUNCTION ]
-local function GetValidTarget()
-    local myChar = LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
+-- [ 3. TARGETING FUNCTION (STRICT CHECK) ]
+local function IsValid(char)
+    if not char or not char:Parent then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
 
-    local closest, shortest = nil, math.huge
+    local plr = Players:GetPlayerFromCharacter(char)
+    if not plr or not plr.Team or plr.Team.Name ~= "Survivors" then return false end
     
+    -- Attributes เช็คสถานะพิเศษ
+    local isHooked = char:GetAttribute("IsHooked") == true
+    local isDowned = char:GetAttribute("IsDown") == true or char:GetAttribute("Knocked") == true
+    
+    return not (isHooked or isDowned)
+end
+
+local function GetTarget()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local closest, shortest = nil, math.huge
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Team and plr.Team.Name == "Survivors" then
-            local char = plr.Character
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            
-            -- เช็คสถานะดาเมจ (Attributes)
-            local isHooked = char:GetAttribute("IsHooked") == true
-            local isDowned = char:GetAttribute("IsDown") == true or char:GetAttribute("Knocked") == true
-            
-            if hum and hrp and hum.Health > 0 and not isHooked and not isDowned then
-                local dist = (hrp.Position - myRoot.Position).Magnitude
+        if plr ~= LocalPlayer and plr.Character and IsValid(plr.Character) then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dist = (hrp.Position - root.Position).Magnitude
                 if dist < shortest then
                     shortest = dist
-                    closest = char
+                    closest = plr.Character
                 end
             end
         end
@@ -41,23 +48,26 @@ local function GetValidTarget()
     return closest
 end
 
--- [ 4. DRAGGABLE UI CONSTRUCTION ]
+-- [ 4. DRAGGABLE UI (FIXED) ]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HyperX_KillFix"
+ScreenGui.Name = "HyperX_KillFinal"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 150, 0, 50)
-MainFrame.Position = UDim2.new(0.5, -75, 0.2, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Size = UDim2.new(0, 140, 0, 45)
+MainFrame.Position = UDim2.new(0.5, -70, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Parent = ScreenGui
 
-local Corner = Instance.new("UICorner", MainFrame)
-local Stroke = Instance.new("UIStroke", MainFrame)
+local Corner = Instance.new("UICorner")
+Corner.Parent = MainFrame
+local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(255, 50, 50)
 Stroke.Thickness = 2
+Stroke.Parent = MainFrame
 
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -65,10 +75,10 @@ ToggleBtn.BackgroundTransparency = 1
 ToggleBtn.Text = "KILL ALL: OFF"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
 ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 14
+ToggleBtn.TextSize = 13
 ToggleBtn.Parent = MainFrame
 
--- ระบบลาก (Draggable)
+-- ระบบลากแบบสมบูรณ์
 local dragToggle, dragStart, startPos
 MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -83,46 +93,45 @@ UIS.InputChanged:Connect(function(input)
 end)
 UIS.InputEnded:Connect(function(input) dragToggle = false end)
 
--- [ 5. TOGGLE LOGIC ]
+-- [ 5. EXECUTION LOGIC (SAFETY FIRST) ]
 ToggleBtn.MouseButton1Click:Connect(function()
     KillActive = not KillActive
     ToggleBtn.Text = KillActive and "KILL ALL: ON" or "KILL ALL: OFF"
-    local color = KillActive and Color3.fromRGB(60, 255, 120) or Color3.fromRGB(255, 60, 60)
+    local color = KillActive and Color3.fromRGB(50, 255, 120) or Color3.fromRGB(255, 50, 50)
     ToggleBtn.TextColor3 = color
     Stroke.Color = color
 end)
 
--- [ 6. MAIN HEARTBEAT LOOP (NO ERROR EDITION) ]
 RunService.Heartbeat:Connect(function()
     if not KillActive then return end
     
-    -- 1. เช็คทีม (ป้องกัน Nil)
+    -- Safety Check ทีม
     local myTeam = LocalPlayer.Team
     if not myTeam or myTeam.Name ~= "Killer" then return end
     
-    -- 2. เช็คตัวละครเรา
     local myChar = LocalPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- 3. ค้นหาเป้าหมาย
-    local target = GetValidTarget()
+    local target = GetTarget()
     if target then
         local tHRP = target:FindFirstChild("HumanoidRootPart")
         if tHRP then
-            -- 4. หา Remote แบบ Real-time เพื่อกัน Nil
-            local AttackRemote = ReplicatedStorage:FindFirstChild("BasicAttack", true)
+            -- วาร์ป
+            local vel = tHRP.AssemblyLinearVelocity * 0.12
+            local pos = tHRP.CFrame * CFrame.new(0, 0, 2.5)
+            myRoot.CFrame = CFrame.new(pos.Position + vel, tHRP.Position)
             
-            -- 5. ทำการวาร์ปและโจมตี
-            local predict = tHRP.AssemblyLinearVelocity * 0.12
-            local behindPos = tHRP.CFrame * CFrame.new(0, 0, 2.5)
+            -- ค้นหา Remote แบบระบุเจาะจงเพื่อกัน Nil Call
+            local Remote = ReplicatedStorage:FindFirstChild("BasicAttack", true)
             
-            myRoot.CFrame = CFrame.new(behindPos.Position + predict, tHRP.Position)
-            
-            if AttackRemote and AttackRemote:IsA("RemoteEvent") then
-                pcall(function()
-                    AttackRemote:FireServer(false)
-                end)
+            if Remote then
+                -- เช็คว่าเป็น RemoteEvent หรือ RemoteFunction และมีฟังก์ชันให้เรียกจริงไหม
+                if Remote:IsA("RemoteEvent") then
+                    Remote:FireServer(false)
+                elseif Remote:IsA("RemoteFunction") then
+                    Remote:InvokeServer(false)
+                end
             end
         end
     end
