@@ -1,45 +1,38 @@
--- [[ FIX LINE 1: ZERO-NIL STARTUP ]]
-task.wait(0.5)
+-- [[ AUTO KILL ALL - TWEEN VERSION ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UIS = game:GetService("UserInputService")
-
--- รอจนกว่า LocalPlayer และ PlayerGui จะมีตัวตนจริง
 local LP = Players.LocalPlayer
-while not LP do
-    task.wait(0.1)
-    LP = Players.LocalPlayer
-end
 
-local PGui = LP:FindFirstChild("PlayerGui") or LP:WaitForChild("PlayerGui", 10)
-if not PGui then return end -- ป้องกัน Error หากหา PlayerGui ไม่เจอ
-
--- [ ตัวแปรหลัก ]
+-- [ CONFIG ]
+local TweenSpeed = 150 -- ความเร็วในการ Tween (ยิ่งเยอะยิ่งเร็ว)
 local KillActive = false
-local AttackEvent = nil
 
--- [ ฟังก์ชันเช็คเป้าหมาย ]
-local function GetValidTarget()
+-- [ TARGETING ]
+local function GetBestTarget()
     local char = LP.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
 
-    local closest, shortest = nil, 300
+    local closest = nil
+    local shortest = math.huge -- ไม่จำกัดระยะ
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP and p.Team and p.Team.Name == "Survivors" and p.Character then
-            local targetChar = p.Character
-            local tRoot = targetChar:FindFirstChild("HumanoidRootPart")
-            local tHum = targetChar:FindFirstChildOfClass("Humanoid")
+            local c = p.Character
+            local hrp = c:FindFirstChild("HumanoidRootPart")
+            local hum = c:FindFirstChildOfClass("Humanoid")
             
-            local invalid = targetChar:GetAttribute("IsHooked") or targetChar:GetAttribute("IsDown") or targetChar:GetAttribute("Knocked")
-
-            if tRoot and tHum and tHum.Health > 0 and not invalid then
-                local mag = (tRoot.Position - root.Position).Magnitude
+            -- เช็คสถานะ (Attributes) ข้ามคนล้ม/แขวน
+            local invalid = c:GetAttribute("IsHooked") or c:GetAttribute("IsDown") or c:GetAttribute("Knocked")
+            
+            if hrp and hum and hum.Health > 0 and not invalid then
+                local mag = (hrp.Position - root.Position).Magnitude
                 if mag < shortest then
                     shortest = mag
-                    closest = targetChar
+                    closest = c
                 end
             end
         end
@@ -47,75 +40,80 @@ local function GetValidTarget()
     return closest
 end
 
--- [ การสร้าง UI แบบปลอดภัย 100% ]
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KillAll_Final_Fixed"
+-- [ GUI SETUP ]
+local ScreenGui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
+ScreenGui.Name = "TweenKillAll"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PGui
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 140, 0, 45)
-Main.Position = UDim2.new(0.5, -70, 0.2, 0)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 150, 0, 50)
+Main.Position = UDim2.new(0.5, -75, 0.2, 0)
+Main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Main.Active = true
-Main.Draggable = true 
-Main.Parent = ScreenGui
+Main.Draggable = true
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(255, 60, 60)
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Color = Color3.fromRGB(255, 100, 0)
 Stroke.Thickness = 2
-Stroke.Parent = Main
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 8)
-Corner.Parent = Main
-
-local Btn = Instance.new("TextButton")
+local Btn = Instance.new("TextButton", Main)
 Btn.Size = UDim2.new(1, 0, 1, 0)
 Btn.BackgroundTransparency = 1
-Btn.Text = "AUTO KILL: OFF"
-Btn.TextColor3 = Color3.fromRGB(255, 60, 60)
+Btn.Text = "TWEEN KILL: OFF"
+Btn.TextColor3 = Color3.fromRGB(255, 100, 0)
 Btn.Font = Enum.Font.GothamBold
 Btn.TextSize = 13
-Btn.Parent = Main
 
--- [ ระบบ Toggle ]
+-- [ TWEEN LOGIC ]
+local currentTween = nil
+
+local function MoveToTarget(targetPart)
+    local myRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local distance = (myRoot.Position - targetPart.Position).Magnitude
+    local duration = distance / TweenSpeed
+    
+    -- วาร์ปไปตำแหน่งหลังเป้าหมาย 2.5 studs
+    local targetPos = targetPart.CFrame * CFrame.new(0, 0, 2.5)
+
+    if currentTween then currentTween:Cancel() end
+
+    currentTween = TweenService:Create(myRoot, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetPos})
+    currentTween:Play()
+    return duration
+end
+
+-- [ TOGGLE ]
 Btn.MouseButton1Click:Connect(function()
     KillActive = not KillActive
-    Btn.Text = KillActive and "AUTO KILL: ON" or "AUTO KILL: OFF"
-    local color = KillActive and Color3.fromRGB(60, 255, 120) or Color3.fromRGB(255, 60, 60)
-    Btn.TextColor3 = color
-    Stroke.Color = color
+    Btn.Text = KillActive and "TWEEN KILL: ON" or "TWEEN KILL: OFF"
+    local theme = KillActive and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 100, 0)
+    Btn.TextColor3 = theme
+    Stroke.Color = theme
+    if not KillActive and currentTween then currentTween:Cancel() end
 end)
 
 -- [ MAIN LOOP ]
-RunService.Heartbeat:Connect(function()
-    if not KillActive then return end
-    
-    -- เช็คทีม Killer
-    local myTeam = LP.Team
-    if not myTeam or myTeam.Name ~= "Killer" then return end
-    
-    local myChar = LP.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-
-    local targetChar = GetValidTarget()
-    if targetChar then
-        local tRoot = targetChar:FindFirstChild("HumanoidRootPart")
-        if tRoot then
-            -- ค้นหา Remote แบบกัน Nil
-            if not AttackEvent then
-                AttackEvent = ReplicatedStorage:FindFirstChild("BasicAttack", true)
-            end
-
-            -- วาร์ป + โจมตี
-            local vel = tRoot.AssemblyLinearVelocity * 0.12
-            local pos = tRoot.CFrame * CFrame.new(0, 0, 2.5)
-            myRoot.CFrame = CFrame.new(pos.Position + vel, tRoot.Position)
-            
-            if AttackEvent and AttackEvent:IsA("RemoteEvent") then
-                pcall(function() AttackEvent:FireServer(false) end)
+task.spawn(function()
+    while task.wait() do
+        if KillActive then
+            -- เช็คทีม
+            if LP.Team and LP.Team.Name == "Killer" then
+                local targetChar = GetBestTarget()
+                if targetChar then
+                    local tRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                    if tRoot then
+                        -- เริ่ม Tween
+                        MoveToTarget(tRoot)
+                        
+                        -- โจมตีระว่าง Tween
+                        local Remote = ReplicatedStorage:FindFirstChild("BasicAttack", true)
+                        if Remote and (LP.Character.HumanoidRootPart.Position - tRoot.Position).Magnitude < 10 then
+                            pcall(function() Remote:FireServer(false) end)
+                        end
+                    end
+                end
             end
         end
     end
