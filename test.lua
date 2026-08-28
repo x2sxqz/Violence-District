@@ -1,46 +1,43 @@
--- ============== AUTO KILL ALL : BUG-FIXED EDITION (NO NIL) ==============
+-- [[ AUTO KILL ALL - NO NIL VERSION ]]
 
--- [ 1. SERVICES ]
+-- 1. ล้าง Error Line 1 ด้วยการรอโหลด (Safety Wait)
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+-- 2. ประกาศ Services แบบปลอดภัย
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- [ 2. CORE VARIABLES ]
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+-- 3. ตัวแปรหลัก (ดัก Nil)
+local LP = Players.LocalPlayer
+while not LP do task.wait() LP = Players.LocalPlayer end
+
 local KillActive = false
 
--- [ 3. TARGETING FUNCTION (STRICT CHECK) ]
-local function IsValid(char)
-    if not char or not char:Parent then return false end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-
-    local plr = Players:GetPlayerFromCharacter(char)
-    if not plr or not plr.Team or plr.Team.Name ~= "Survivors" then return false end
-    
-    -- Attributes เช็คสถานะพิเศษ
-    local isHooked = char:GetAttribute("IsHooked") == true
-    local isDowned = char:GetAttribute("IsDown") == true or char:GetAttribute("Knocked") == true
-    
-    return not (isHooked or isDowned)
-end
-
-local function GetTarget()
-    local char = LocalPlayer.Character
+-- 4. ฟังก์ชันเช็คเป้าหมาย (Strict Validation)
+local function GetValidTarget()
+    local char = LP.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
-    
-    local closest, shortest = nil, math.huge
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and IsValid(plr.Character) then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
+
+    local closest, shortest = nil, 250 -- ระยะสูงสุดที่ต้องการ
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character and p.Team and p.Team.Name == "Survivors" then
+            local c = p.Character
+            local hrp = c:FindFirstChild("HumanoidRootPart")
+            local hum = c:FindFirstChildOfClass("Humanoid")
+            
+            -- เช็คสถานะดาเมจ (Attributes)
+            local isHooked = c:GetAttribute("IsHooked") == true
+            local isDowned = c:GetAttribute("IsDown") == true or c:GetAttribute("Knocked") == true
+            
+            if hrp and hum and hum.Health > 0 and not isHooked and not isDowned then
                 local dist = (hrp.Position - root.Position).Magnitude
                 if dist < shortest then
                     shortest = dist
-                    closest = plr.Character
+                    closest = c
                 end
             end
         end
@@ -48,90 +45,73 @@ local function GetTarget()
     return closest
 end
 
--- [ 4. DRAGGABLE UI (FIXED) ]
+-- 5. สร้าง GUI (Draggable)
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HyperX_KillFinal"
+ScreenGui.Name = "FinalKillAll"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
+ScreenGui.Parent = LP:WaitForChild("PlayerGui")
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 140, 0, 45)
-MainFrame.Position = UDim2.new(0.5, -70, 0.2, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Parent = ScreenGui
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 140, 0, 45)
+Frame.Position = UDim2.new(0.5, -70, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.Active = true
+Frame.Draggable = true -- ระบบลากมาตรฐาน
+Frame.Parent = ScreenGui
 
-local Corner = Instance.new("UICorner")
-Corner.Parent = MainFrame
 local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(255, 50, 50)
 Stroke.Thickness = 2
-Stroke.Parent = MainFrame
+Stroke.Parent = Frame
 
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
-ToggleBtn.BackgroundTransparency = 1
-ToggleBtn.Text = "KILL ALL: OFF"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 13
-ToggleBtn.Parent = MainFrame
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 8)
+Corner.Parent = Frame
 
--- ระบบลากแบบสมบูรณ์
-local dragToggle, dragStart, startPos
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragToggle = true; dragStart = input.Position; startPos = MainFrame.Position
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if dragToggle and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UIS.InputEnded:Connect(function(input) dragToggle = false end)
+local Btn = Instance.new("TextButton")
+Btn.Size = UDim2.new(1, 0, 1, 0)
+Btn.BackgroundTransparency = 1
+Btn.Text = "AUTO KILL: OFF"
+Btn.TextColor3 = Color3.fromRGB(255, 50, 50)
+Btn.Font = Enum.Font.GothamBold
+Btn.TextSize = 13
+Btn.Parent = Frame
 
--- [ 5. EXECUTION LOGIC (SAFETY FIRST) ]
-ToggleBtn.MouseButton1Click:Connect(function()
+-- 6. ระบบ Toggle
+Btn.MouseButton1Click:Connect(function()
     KillActive = not KillActive
-    ToggleBtn.Text = KillActive and "KILL ALL: ON" or "KILL ALL: OFF"
-    local color = KillActive and Color3.fromRGB(50, 255, 120) or Color3.fromRGB(255, 50, 50)
-    ToggleBtn.TextColor3 = color
-    Stroke.Color = color
+    Btn.Text = KillActive and "AUTO KILL: ON" or "AUTO KILL: OFF"
+    Btn.TextColor3 = KillActive and Color3.fromRGB(50, 255, 120) or Color3.fromRGB(255, 50, 50)
+    Stroke.Color = KillActive and Color3.fromRGB(50, 255, 120) or Color3.fromRGB(255, 50, 50)
 end)
 
+-- 7. Main Loop (ดัก Nil ทุกลมหายใจ)
 RunService.Heartbeat:Connect(function()
     if not KillActive then return end
     
-    -- Safety Check ทีม
-    local myTeam = LocalPlayer.Team
+    -- เช็คทีม (กัน Nil)
+    local myTeam = LP.Team
     if not myTeam or myTeam.Name ~= "Killer" then return end
     
-    local myChar = LocalPlayer.Character
+    local myChar = LP.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    local target = GetTarget()
+    local target = GetValidTarget()
     if target then
-        local tHRP = target:FindFirstChild("HumanoidRootPart")
-        if tHRP then
+        local tRoot = target:FindFirstChild("HumanoidRootPart")
+        if tRoot then
             -- วาร์ป
-            local vel = tHRP.AssemblyLinearVelocity * 0.12
-            local pos = tHRP.CFrame * CFrame.new(0, 0, 2.5)
-            myRoot.CFrame = CFrame.new(pos.Position + vel, tHRP.Position)
+            local vel = tRoot.AssemblyLinearVelocity * 0.12
+            local behind = tRoot.CFrame * CFrame.new(0, 0, 2.5)
+            myRoot.CFrame = CFrame.new(behind.Position + vel, tRoot.Position)
             
-            -- ค้นหา Remote แบบระบุเจาะจงเพื่อกัน Nil Call
+            -- ค้นหา Remote (ดัก Nil 100%)
             local Remote = ReplicatedStorage:FindFirstChild("BasicAttack", true)
-            
-            if Remote then
-                -- เช็คว่าเป็น RemoteEvent หรือ RemoteFunction และมีฟังก์ชันให้เรียกจริงไหม
-                if Remote:IsA("RemoteEvent") then
+            if Remote and Remote:IsA("RemoteEvent") then
+                pcall(function()
                     Remote:FireServer(false)
-                elseif Remote:IsA("RemoteFunction") then
-                    Remote:InvokeServer(false)
-                end
+                end)
             end
         end
     end
