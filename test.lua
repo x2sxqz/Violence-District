@@ -1,124 +1,165 @@
--- ==================== HYPERX REMOTE SPY (STANDALONE) ====================
+-- ============== AUTO KILL ALL : COMPLETE STANDALONE MODULE ==============
 
-local UserInputService = game:GetService("UserInputService")
+-- [ 1. ALL NECESSARY SERVICES & VARIABLES ]
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
+local CoreGui = game:GetService("CoreGui")
+local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local Stats = game:GetService("Stats")
+local TeleportService = game:GetService("TeleportService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
 
--- Configuration
-local IGNORED_REMOTES = {
-    ["UpdateCharacterLook"] = true,
-    ["CharacterLookUpdate"] = true
-}
+-- [ 2. GAME SPECIFIC VARIABLES ]
+-- เช็คว่า Remote มีอยู่จริงเพื่อป้องกันสคริปต์ Error
+local AttackEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attacks"):WaitForChild("BasicAttack")
+local KillActive = false
 
--- GUI Creation
-local SpyGui = Instance.new("ScreenGui")
-SpyGui.Name = "HyperX_RemoteSpy"
-SpyGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-SpyGui.ResetOnSpawn = false
+-- [ 3. TARGET VALIDATION LOGIC ]
+local function IsAttackable(char)
+    if not char or not char:Parent then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 400)
-MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = SpyGui
-
-local UICorner = Instance.new("UICorner", MainFrame)
-local UIStroke = Instance.new("UIStroke", MainFrame)
-UIStroke.Color = Color3.fromRGB(60, 60, 60)
-
-local Header = Instance.new("TextLabel")
-Header.Size = UDim2.new(1, 0, 0, 30)
-Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Text = " REMOTE SPY - BY HYPERX"
-Header.TextColor3 = Color3.fromRGB(255, 255, 255)
-Header.TextXAlignment = Enum.TextXAlignment.Left
-Header.Font = Enum.Font.GothamBold
-Header.TextSize = 14
-Header.Parent = MainFrame
-Instance.new("UICorner", Header)
-
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -10, 1, -40)
-Scroll.Position = UDim2.new(0, 5, 0, 35)
-Scroll.BackgroundTransparency = 1
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-Scroll.ScrollBarThickness = 3
-Scroll.Parent = MainFrame
-
-local ListLayout = Instance.new("UIListLayout", Scroll)
-ListLayout.Padding = UDim.new(0, 4)
-
--- Draggable Logic
-local function MakeDraggable(obj)
-    local dragging, dragInput, dragStart, startPos
-    obj.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; startPos = obj.Position
-        end
-    end)
-    obj.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-    end)
-end
-MakeDraggable(MainFrame)
-
--- Add Log Function
-local function NewRemoteLog(remote, args)
-    local LogFrame = Instance.new("Frame")
-    LogFrame.Size = UDim2.new(1, -5, 0, 45)
-    LogFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    LogFrame.Parent = Scroll
-    Instance.new("UICorner", LogFrame)
-
-    local NameLabel = Instance.new("TextLabel")
-    NameLabel.Size = UDim2.new(0.65, 0, 1, 0)
-    NameLabel.Position = UDim2.new(0, 10, 0, 0)
-    NameLabel.BackgroundTransparency = 1
-    NameLabel.Text = remote.Name
-    NameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    NameLabel.TextSize = 12
-    NameLabel.Font = Enum.Font.Gotham
-    NameLabel.Parent = LogFrame
-
-    local RunBtn = Instance.new("TextButton")
-    RunBtn.Size = UDim2.new(0.25, 0, 0, 25)
-    RunBtn.Position = UDim2.new(0.7, 0, 0.5, -12)
-    RunBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
-    RunBtn.Text = "RUN"
-    RunBtn.Font = Enum.Font.GothamBold
-    RunBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    RunBtn.Parent = LogFrame
-    Instance.new("UICorner", RunBtn)
-
-    RunBtn.MouseButton1Click:Connect(function()
-        if remote:IsA("RemoteEvent") then
-            remote:FireServer(unpack(args))
-        elseif remote:IsA("RemoteFunction") then
-            remote:InvokeServer(unpack(args))
-        end
-    end)
-
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+    -- เช็ค Team (ต้องเป็น Survivors เท่านั้น)
+    local plr = Players:GetPlayerFromCharacter(char)
+    if not plr or not plr.Team or plr.Team.Name ~= "Survivors" then return false end
+    
+    -- เช็ค Attributes: ข้ามคนล้ม (Knocked/Down) และคนบน Hook (IsHooked)
+    -- เพราะการวาร์ปไปตีคนกลุ่มนี้จะทำให้เราเสียเวลาและดาเมจไม่เข้า
+    local isHooked = char:GetAttribute("IsHooked") == true
+    local isDowned = char:GetAttribute("IsDown") == true or char:GetAttribute("Knocked") == true
+    
+    if isHooked or isDowned then return false end
+    
+    return true
 end
 
--- Hook Metamethod
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-
-    if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-        if not IGNORED_REMOTES[self.Name] then
-            task.spawn(NewRemoteLog, self, args)
+local function GetClosestTarget()
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+    
+    local closest, shortest = nil, math.huge
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and IsAttackable(plr.Character) then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dist = (hrp.Position - myRoot.Position).Magnitude
+                if dist < shortest then
+                    shortest = dist
+                    closest = plr.Character
+                end
+            end
         end
     end
-    return oldNamecall(self, ...)
+    return closest
+end
+
+-- [ 4. DRAGGABLE UI CONSTRUCTION ]
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "HyperX_KillModule"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 160, 0, 55)
+MainFrame.Position = UDim2.new(0.5, -80, 0.15, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 50, 50)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -10, 1, -10)
+ToggleBtn.Position = UDim2.new(0, 5, 0, 5)
+ToggleBtn.BackgroundTransparency = 1
+ToggleBtn.Text = "KILL ALL: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 14
+ToggleBtn.Parent = MainFrame
+
+-- [ 5. STABLE DRAG SYSTEM ]
+local dragToggle, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragToggle then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragToggle = false
+    end
+end)
+
+-- [ 6. MAIN KILLER LOGIC ]
+ToggleBtn.MouseButton1Click:Connect(function()
+    KillActive = not KillActive
+    if KillActive then
+        ToggleBtn.Text = "KILL ALL: ON"
+        ToggleBtn.TextColor3 = Color3.fromRGB(50, 255, 120)
+        UIStroke.Color = Color3.fromRGB(50, 255, 120)
+    else
+        ToggleBtn.Text = "KILL ALL: OFF"
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
+        UIStroke.Color = Color3.fromRGB(255, 50, 50)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not KillActive then return end
+    
+    -- ตรวจสอบทีม: ต้องเป็น Killer เท่านั้น
+    if not (LocalPlayer.Team and LocalPlayer.Team.Name == "Killer") then return end
+    
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local target = GetClosestTarget()
+    if target then
+        local tHRP = target:FindFirstChild("HumanoidRootPart")
+        if tHRP then
+            -- Prediction: คำนวณความเร็วเป้าหมายเพื่อวาร์ปดักหน้า/หลังให้แม่น
+            local predict = tHRP.AssemblyLinearVelocity * 0.12
+            
+            -- วาร์ปไปตำแหน่ง "ด้านหลัง" ของเป้าหมาย (2.5 studs) เพื่อเลี่ยงการโดน Parry
+            local behindPosition = tHRP.CFrame * CFrame.new(0, 0, 2.5)
+            
+            -- อัปเดตตำแหน่ง Killer
+            myRoot.CFrame = CFrame.new(behindPosition.Position + predict, tHRP.Position)
+            
+            -- ส่งคำสั่งโจมตีรัวๆ ผ่าน Remote
+            pcall(function()
+                AttackEvent:FireServer(false)
+            end)
+        end
+    end
 end)
