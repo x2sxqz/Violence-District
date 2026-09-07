@@ -1,4 +1,4 @@
--- [[ HyperX Ultra Fast Auto Parry - Optimized Range 8 ]] --
+-- [[ HyperX Ultra Aggressive Parry - Highlight ESP Edition ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -9,7 +9,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local Config = {
     Enabled = true,
-    Range = 8, -- ปรับตามคำขอ (Default: 8)
+    Range = 8, -- เริ่มต้นที่ 8 ตามคำขอ
     VisualEnabled = true,
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
@@ -19,46 +19,44 @@ local Config = {
     }
 }
 
--- [ Optimization: Cache ]
-local KillerModel = nil
+-- [ Cache Variables ]
 local CachedGuiMob = nil
+local KillerModel = nil
+local KillerHighlight = nil
 
+-- [ Get Parry Button ]
 local function GetGuiMob()
     if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
-    local survivorMob = PlayerGui:FindFirstChild("Survivor-mob")
-    local guiMob = survivorMob and survivorMob:FindFirstChild("Gui-mob", true)
-    if guiMob then CachedGuiMob = guiMob end
-    return guiMob
+    local mob = PlayerGui:FindFirstChild("Survivor-mob")
+    CachedGuiMob = mob and mob:FindFirstChild("Gui-mob", true)
+    return CachedGuiMob
 end
 
-local function FindKiller()
-    if KillerModel and KillerModel.Parent then return KillerModel end
-    for _, v in ipairs(workspace:GetChildren()) do
-        if v:IsA("Model") and v ~= LocalPlayer.Character then
-            if v:FindFirstChild("Lookscriptkiller", true) then
-                KillerModel = v
-                return v
-            end
-        end
+-- [ Highlight System (No Rings/Drawing Lib) ]
+local function ApplyHighlight(killer)
+    if not killer then return end
+    if not KillerHighlight or KillerHighlight.Parent ~= killer then
+        if KillerHighlight then KillerHighlight:Destroy() end
+        KillerHighlight = Instance.new("Highlight")
+        KillerHighlight.Name = "KillerVisual"
+        KillerHighlight.FillTransparency = 0.5
+        KillerHighlight.OutlineTransparency = 0
+        KillerHighlight.Parent = killer
     end
-    return nil
 end
 
--- [ Visual Ring - Super Slim & Glow ]
-local Ring = Instance.new("Part", workspace)
-Ring.Name = "HyperX_SlimRing"
-Ring.Anchored = true
-Ring.CanCollide = false
-Ring.Material = Enum.Material.Neon
-Ring.Transparency = 0.2
-Ring.Size = Vector3.new(1, 1, 1)
+-- [ Instant Parry Trigger ]
+local function TriggerParry()
+    task.spawn(function()
+        local btn = GetGuiMob()
+        if btn then
+            firesignal(btn.MouseButton1Down)
+        end
+    end)
+end
 
-local RingMesh = Instance.new("SpecialMesh", Ring)
-RingMesh.MeshId = "rbxassetid://3270017"
-RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.01) -- แก้ความหนาตรงนี้
-
--- [ Fast Detection ]
-local function SetupDetection(killer)
+-- [ Killer Animation Listener ]
+local function ConnectKiller(killer)
     local hum = killer:WaitForChild("Humanoid", 10)
     local animator = hum and hum:WaitForChild("Animator", 10)
     if animator then
@@ -69,10 +67,8 @@ local function SetupDetection(killer)
                 local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local kRoot = killer:FindFirstChild("HumanoidRootPart")
                 if root and kRoot then
-                    local dist = (root.Position - kRoot.Position).Magnitude
-                    if dist <= Config.Range then
-                        local guiMob = GetGuiMob()
-                        if guiMob then firesignal(guiMob.MouseButton1Down) end
+                    if (root.Position - kRoot.Position).Magnitude <= Config.Range then
+                        TriggerParry()
                     end
                 end
             end
@@ -80,46 +76,55 @@ local function SetupDetection(killer)
     end
 end
 
--- Monitor Killer Character
+-- [ Killer Scanner ]
 task.spawn(function()
-    while task.wait(1) do
-        local killer = FindKiller()
-        if killer then SetupDetection(killer) end
-    end
-end)
-
--- Main Visual Loop
-RunService.RenderStepped:Connect(function()
-    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if root and Config.VisualEnabled then
-        Ring.Transparency = 0.2
-        Ring.Position = root.Position - Vector3.new(0, 2.95, 0)
-        Ring.CFrame = CFrame.new(Ring.Position) * CFrame.Angles(math.rad(90), 0, 0)
-        RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.001)
-        
-        local killer = FindKiller()
-        if killer and killer:FindFirstChild("HumanoidRootPart") then
-            local dist = (root.Position - killer.HumanoidRootPart.Position).Magnitude
-            Ring.Color = dist <= Config.Range and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 30, 30)
+    while true do
+        for _, v in ipairs(workspace:GetChildren()) do
+            if v:IsA("Model") and v ~= LocalPlayer.Character then
+                if v:FindFirstChild("Lookscriptkiller", true) then
+                    if KillerModel ~= v then
+                        KillerModel = v
+                        ApplyHighlight(v)
+                        ConnectKiller(v)
+                    end
+                end
+            end
         end
-    else
-        Ring.Transparency = 1
+        task.wait(2)
     end
 end)
 
--- UI System
+-- [ Fast Performance Loop ]
+RunService.Heartbeat:Connect(function()
+    if KillerModel and KillerModel.Parent then
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local kRoot = KillerModel:FindFirstChild("HumanoidRootPart")
+        
+        if Config.VisualEnabled and KillerHighlight then
+            KillerHighlight.Enabled = true
+            if root and kRoot then
+                local dist = (root.Position - kRoot.Position).Magnitude
+                KillerHighlight.FillColor = dist <= Config.Range and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            end
+        elseif KillerHighlight then
+            KillerHighlight.Enabled = false
+        end
+    end
+end)
+
+-- [ Mobile Friendly UI ]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 180, 0, 160)
 Main.Position = UDim2.new(0.5, -90, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "HYPERX PARRY V8"
+Title.Text = "HYPERX PARRY V3"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -140,7 +145,7 @@ local function CreateToggle(name, prop, pos)
 end
 
 CreateToggle("Auto Parry", "Enabled", 40)
-CreateToggle("Glow Range", "VisualEnabled", 75)
+CreateToggle("Killer Highlight", "VisualEnabled", 75)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
