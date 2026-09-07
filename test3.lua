@@ -1,15 +1,16 @@
--- [[ HyperX Ultra Aggressive Parry - Highlight ESP Edition ]] --
+-- [[ HyperX Ultra Aggressive Parry - 3D Drawing Circle ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local Config = {
     Enabled = true,
-    Range = 8, -- เริ่มต้นที่ 8 ตามคำขอ
+    Range = 8,
     VisualEnabled = true,
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
@@ -19,12 +20,20 @@ local Config = {
     }
 }
 
+-- [ Drawing Visual Setup ]
+local Segments = 16
+local CircleLines = {}
+for i = 1, Segments do
+    local Line = Drawing.new("Line")
+    Line.Thickness = 1.5
+    Line.Transparency = 1
+    CircleLines[i] = Line
+end
+
 -- [ Cache Variables ]
 local CachedGuiMob = nil
 local KillerModel = nil
-local KillerHighlight = nil
 
--- [ Get Parry Button ]
 local function GetGuiMob()
     if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
     local mob = PlayerGui:FindFirstChild("Survivor-mob")
@@ -32,30 +41,35 @@ local function GetGuiMob()
     return CachedGuiMob
 end
 
--- [ Highlight System (No Rings/Drawing Lib) ]
-local function ApplyHighlight(killer)
-    if not killer then return end
-    if not KillerHighlight or KillerHighlight.Parent ~= killer then
-        if KillerHighlight then KillerHighlight:Destroy() end
-        KillerHighlight = Instance.new("Highlight")
-        KillerHighlight.Name = "KillerVisual"
-        KillerHighlight.FillTransparency = 0.5
-        KillerHighlight.OutlineTransparency = 0
-        KillerHighlight.Parent = killer
+-- [ 3D Circle Drawing Logic ]
+local function Update3DCircle(origin, radius, color)
+    local points = {}
+    local step = (math.pi * 2) / Segments
+    
+    for i = 0, Segments do
+        local angle = i * step
+        local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+        local screenPos, onScreen = Camera:WorldToViewportPoint(origin + offset)
+        points[i+1] = {Pos = Vector2.new(screenPos.X, screenPos.Y), Visible = onScreen}
+    end
+
+    for i = 1, Segments do
+        local line = CircleLines[i]
+        local p1 = points[i]
+        local p2 = points[i+1]
+        
+        if p1.Visible and p2.Visible and Config.VisualEnabled then
+            line.Visible = true
+            line.From = p1.Pos
+            line.To = p2.Pos
+            line.Color = color
+        else
+            line.Visible = false
+        end
     end
 end
 
--- [ Instant Parry Trigger ]
-local function TriggerParry()
-    task.spawn(function()
-        local btn = GetGuiMob()
-        if btn then
-            firesignal(btn.MouseButton1Down)
-        end
-    end)
-end
-
--- [ Killer Animation Listener ]
+-- [ Killer Listener ]
 local function ConnectKiller(killer)
     local hum = killer:WaitForChild("Humanoid", 10)
     local animator = hum and hum:WaitForChild("Animator", 10)
@@ -66,10 +80,9 @@ local function ConnectKiller(killer)
             if Config.AttackAnimations[id] then
                 local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local kRoot = killer:FindFirstChild("HumanoidRootPart")
-                if root and kRoot then
-                    if (root.Position - kRoot.Position).Magnitude <= Config.Range then
-                        TriggerParry()
-                    end
+                if root and kRoot and (root.Position - kRoot.Position).Magnitude <= Config.Range then
+                    local btn = GetGuiMob()
+                    if btn then firesignal(btn.MouseButton1Down) end
                 end
             end
         end)
@@ -80,51 +93,57 @@ end
 task.spawn(function()
     while true do
         for _, v in ipairs(workspace:GetChildren()) do
-            if v:IsA("Model") and v ~= LocalPlayer.Character then
-                if v:FindFirstChild("Lookscriptkiller", true) then
-                    if KillerModel ~= v then
-                        KillerModel = v
-                        ApplyHighlight(v)
-                        ConnectKiller(v)
-                    end
+            if v:IsA("Model") and v ~= LocalPlayer.Character and v:FindFirstChild("Lookscriptkiller", true) then
+                if KillerModel ~= v then
+                    KillerModel = v
+                    ConnectKiller(v)
                 end
             end
         end
-        task.wait(2)
+        task.wait(1)
     end
 end)
 
 -- [ Fast Performance Loop ]
-RunService.Heartbeat:Connect(function()
-    if KillerModel and KillerModel.Parent then
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local kRoot = KillerModel:FindFirstChild("HumanoidRootPart")
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if root then
+        -- Raycast to find actual ground
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {char}
+        local ray = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), params)
+        local groundPos = ray and ray.Position or (root.Position - Vector3.new(0, 3, 0))
         
-        if Config.VisualEnabled and KillerHighlight then
-            KillerHighlight.Enabled = true
-            if root and kRoot then
-                local dist = (root.Position - kRoot.Position).Magnitude
-                KillerHighlight.FillColor = dist <= Config.Range and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        -- Check distance for color
+        local targetInAttackRange = false
+        if KillerModel and KillerModel:FindFirstChild("HumanoidRootPart") then
+            if (root.Position - KillerModel.HumanoidRootPart.Position).Magnitude <= Config.Range then
+                targetInAttackRange = true
             end
-        elseif KillerHighlight then
-            KillerHighlight.Enabled = false
         end
+        
+        local circleColor = targetInAttackRange and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+        Update3DCircle(groundPos, Config.Range, circleColor)
+    else
+        for _, l in pairs(CircleLines) do l.Visible = false end
     end
 end)
 
--- [ Mobile Friendly UI ]
+-- [ UI System ]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 180, 0, 160)
 Main.Position = UDim2.new(0.5, -90, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "HYPERX PARRY V3"
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Text = "HYPERX PARRY V4"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -145,7 +164,7 @@ local function CreateToggle(name, prop, pos)
 end
 
 CreateToggle("Auto Parry", "Enabled", 40)
-CreateToggle("Killer Highlight", "VisualEnabled", 75)
+CreateToggle("Range Visual", "VisualEnabled", 75)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
