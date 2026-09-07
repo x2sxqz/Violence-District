@@ -1,4 +1,4 @@
--- [[ HyperX Ultra Fast & Slim Glowing Parry ]] --
+-- [[ HyperX Ultra Fast Auto Parry - Optimized Range 8 ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -9,9 +9,8 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local Config = {
     Enabled = true,
-    Range = 15,
+    Range = 8, -- ปรับตามคำขอ (Default: 8)
     VisualEnabled = true,
-    -- Pre-cached IDs as keys for O(1) Lookup Speed
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
         ["74968262036854"] = true, ["82666958311998"] = true, ["78432063483146"] = true,
@@ -20,8 +19,10 @@ local Config = {
     }
 }
 
--- Caching Objects
+-- [ Optimization: Cache ]
+local KillerModel = nil
 local CachedGuiMob = nil
+
 local function GetGuiMob()
     if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
     local survivorMob = PlayerGui:FindFirstChild("Survivor-mob")
@@ -30,126 +31,127 @@ local function GetGuiMob()
     return guiMob
 end
 
--- // Creating the Slim Glowing Ring
-local Ring = Instance.new("Part")
-Ring.Name = "HyperX_SlimRing"
-Ring.Anchored = true
-Ring.CanCollide = false
-Ring.CastShadow = false
-Ring.Material = Enum.Material.Neon
-Ring.Transparency = 0.2 -- แสงชัดขึ้น
-Ring.Size = Vector3.new(1, 1, 1)
-Ring.Parent = workspace
-
-local RingMesh = Instance.new("SpecialMesh", Ring)
-RingMesh.MeshId = "rbxassetid://3270017"
--- ปรับ Z ให้เหลือ 0.02 เพื่อความบางเฉียบแบบเส้น ESP
-RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.02)
-
--- // Ultra Fast Detection Loop
-RunService.RenderStepped:Connect(function()
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then 
-        Ring.Transparency = 1 
-        return 
-    end
-
-    -- Visual Positioning
-    if Config.VisualEnabled then
-        Ring.Transparency = 0.2
-        Ring.Position = root.Position - Vector3.new(0, 2.95, 0)
-        Ring.CFrame = CFrame.new(Ring.Position) * CFrame.Angles(math.rad(90), 0, 0)
-        RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.02)
-    else
-        Ring.Transparency = 1
-    end
-
-    local guiMob = GetGuiMob()
-    local targetInAttack = false
-
-    -- Scanner
+local function FindKiller()
+    if KillerModel and KillerModel.Parent then return KillerModel end
     for _, v in ipairs(workspace:GetChildren()) do
-        if v:IsA("Model") and v ~= char and v:FindFirstChild("Lookscriptkiller", true) then
-            local kRoot = v:FindFirstChild("HumanoidRootPart")
-            local kHum = v:FindFirstChildOfClass("Humanoid")
-            
-            if kRoot and kHum then
-                local dist = (root.Position - kRoot.Position).Magnitude
-                if dist <= Config.Range then
-                    local animator = kHum:FindFirstChildOfClass("Animator")
-                    if animator then
-                        -- ดึง Tracks ออกมาเช็คทันที
-                        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                            local id = tostring(track.Animation.AnimationId):match("%d+")
-                            if Config.AttackAnimations[id] then
-                                targetInAttack = true
-                                if Config.Enabled and guiMob then
-                                    -- สั่งงานทันทีในเฟรมนี้
-                                    firesignal(guiMob.MouseButton1Down)
-                                    -- เพิ่มความมั่นใจด้วยการกดย้ำ (Optional)
-                                    -- firesignal(guiMob.MouseButton1Down) 
-                                end
-                                break
-                            end
-                        end
-                    end
-                end
+        if v:IsA("Model") and v ~= LocalPlayer.Character then
+            if v:FindFirstChild("Lookscriptkiller", true) then
+                KillerModel = v
+                return v
             end
         end
     end
-    
-    -- Glowing Status Color
-    Ring.Color = targetInAttack and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 30, 30)
+    return nil
+end
+
+-- [ Visual Ring - Super Slim & Glow ]
+local Ring = Instance.new("Part", workspace)
+Ring.Name = "HyperX_SlimRing"
+Ring.Anchored = true
+Ring.CanCollide = false
+Ring.Material = Enum.Material.Neon
+Ring.Transparency = 0.2
+Ring.Size = Vector3.new(1, 1, 1)
+
+local RingMesh = Instance.new("SpecialMesh", Ring)
+RingMesh.MeshId = "rbxassetid://3270017"
+RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.01) -- แก้ความหนาตรงนี้
+
+-- [ Fast Detection ]
+local function SetupDetection(killer)
+    local hum = killer:WaitForChild("Humanoid", 10)
+    local animator = hum and hum:WaitForChild("Animator", 10)
+    if animator then
+        animator.AnimationPlayed:Connect(function(track)
+            if not Config.Enabled then return end
+            local id = tostring(track.Animation.AnimationId):match("%d+")
+            if Config.AttackAnimations[id] then
+                local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local kRoot = killer:FindFirstChild("HumanoidRootPart")
+                if root and kRoot then
+                    local dist = (root.Position - kRoot.Position).Magnitude
+                    if dist <= Config.Range then
+                        local guiMob = GetGuiMob()
+                        if guiMob then firesignal(guiMob.MouseButton1Down) end
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- Monitor Killer Character
+task.spawn(function()
+    while task.wait(1) do
+        local killer = FindKiller()
+        if killer then SetupDetection(killer) end
+    end
 end)
 
--- // UI System (Mobile Friendly)
+-- Main Visual Loop
+RunService.RenderStepped:Connect(function()
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if root and Config.VisualEnabled then
+        Ring.Transparency = 0.2
+        Ring.Position = root.Position - Vector3.new(0, 2.95, 0)
+        Ring.CFrame = CFrame.new(Ring.Position) * CFrame.Angles(math.rad(90), 0, 0)
+        RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.001)
+        
+        local killer = FindKiller()
+        if killer and killer:FindFirstChild("HumanoidRootPart") then
+            local dist = (root.Position - killer.HumanoidRootPart.Position).Magnitude
+            Ring.Color = dist <= Config.Range and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 30, 30)
+        end
+    else
+        Ring.Transparency = 1
+    end
+end)
+
+-- UI System
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 190)
-Main.Position = UDim2.new(0.5, -100, 0.4, 0)
+Main.Size = UDim2.new(0, 180, 0, 160)
+Main.Position = UDim2.new(0.5, -90, 0.4, 0)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPERX PARRY V2"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "HYPERX PARRY V8"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
 
 local function CreateToggle(name, prop, pos)
     local btn = Instance.new("TextButton", Main)
-    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
     btn.Position = UDim2.new(0.05, 0, 0, pos)
     btn.BackgroundColor3 = Config[prop] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-    btn.Text = name .. (Config[prop] and ": ON" or ": OFF")
+    btn.Text = name
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.Gotham
     Instance.new("UICorner", btn)
-    
     btn.MouseButton1Click:Connect(function()
         Config[prop] = not Config[prop]
         btn.BackgroundColor3 = Config[prop] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-        btn.Text = name .. (Config[prop] and ": ON" or ": OFF")
     end)
 end
 
-CreateToggle("Auto Parry", "Enabled", 45)
-CreateToggle("Glow Range", "VisualEnabled", 85)
+CreateToggle("Auto Parry", "Enabled", 40)
+CreateToggle("Glow Range", "VisualEnabled", 75)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
-RangeLabel.Position = UDim2.new(0, 0, 0, 130)
+RangeLabel.Position = UDim2.new(0, 0, 0, 110)
 RangeLabel.Text = "Range: " .. Config.Range
 RangeLabel.TextColor3 = Color3.new(1, 1, 1)
 RangeLabel.BackgroundTransparency = 1
 
 local RangeSlider = Instance.new("TextButton", Main)
-RangeSlider.Size = UDim2.new(0.9, 0, 0, 10)
-RangeSlider.Position = UDim2.new(0.05, 0, 0, 155)
+RangeSlider.Size = UDim2.new(0.9, 0, 0, 8)
+RangeSlider.Position = UDim2.new(0.05, 0, 0, 135)
 RangeSlider.Text = ""
 RangeSlider.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
 Instance.new("UICorner", RangeSlider)
