@@ -1,4 +1,4 @@
--- [[ HyperX Ultra Fast Auto Parry - Drawing Circle Edition ]] --
+-- [[ HyperX Ultra Fast Auto Parry - 3D Ground Drawing ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -20,14 +20,17 @@ local Config = {
     }
 }
 
--- Drawing Object for Ground Range
-local RangeCircle = Drawing.new("Circle")
-RangeCircle.Thickness = 1.5
-RangeCircle.NumSides = 100 
-RangeCircle.Filled = false
-RangeCircle.Transparency = 1
+-- // สร้างเส้น 16 เส้นเพื่อประกอบเป็นวงกลม (3D Perspective)
+local Segments = 16 
+local Lines = {}
+for i = 1, Segments do
+    local L = Drawing.new("Line")
+    L.Thickness = 1.5
+    L.Transparency = 1
+    Lines[i] = L
+end
 
--- Caching Gui Button
+-- Caching Gui
 local CachedGuiMob = nil
 local function GetGuiMob()
     if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
@@ -37,34 +40,43 @@ local function GetGuiMob()
     return guiMob
 end
 
+-- // ฟังก์ชันวาดวงกลม 3D บนพื้น
+local function Update3DCircle(origin, radius, color)
+    local step = (math.pi * 2) / Segments
+    local points = {}
+
+    for i = 0, Segments do
+        local angle = i * step
+        local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+        local worldPos = origin + offset
+        local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
+        points[i+1] = {Pos = Vector2.new(screenPos.X, screenPos.Y), Visible = onScreen}
+    end
+
+    for i = 1, Segments do
+        local p1 = points[i]
+        local p2 = points[i+1]
+        local line = Lines[i]
+        
+        if p1.Visible and p2.Visible and Config.VisualEnabled then
+            line.Visible = true
+            line.From = p1.Pos
+            line.To = p2.Pos
+            line.Color = color
+        else
+            line.Visible = false
+        end
+    end
+end
+
 -- Core Loop
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local guiMob = GetGuiMob()
-    
-    -- Update Ground Circle (Drawing)
-    if Config.Enabled and Config.VisualEnabled and root then
-        local groundPos = root.Position - Vector3.new(0, 2.9, 0)
-        local screenPos, onScreen = Camera:WorldToViewportPoint(groundPos)
-        
-        if onScreen then
-            local edgePos = Camera:WorldToViewportPoint(groundPos + (Camera.CFrame.RightVector * Config.Range))
-            local radius = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(edgePos.X, edgePos.Y)).Magnitude
-            
-            RangeCircle.Visible = true
-            RangeCircle.Position = Vector2.new(screenPos.X, screenPos.Y)
-            RangeCircle.Radius = radius
-        else
-            RangeCircle.Visible = false
-        end
-    else
-        RangeCircle.Visible = false
-    end
-
     local targetInAttack = false
 
-    -- Detection Logic
+    -- // ค้นหา Killer และเช็คการโจมตี
     for _, v in ipairs(workspace:GetChildren()) do
         if v:IsA("Model") and v ~= char and v:FindFirstChild("Lookscriptkiller", true) then
             local kRoot = v:FindFirstChild("HumanoidRootPart")
@@ -76,12 +88,9 @@ RunService.RenderStepped:Connect(function()
                     local animator = kHum:FindFirstChildOfClass("Animator")
                     if animator then
                         for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                            local animId = tostring(track.Animation.AnimationId):match("%d+")
-                            if Config.AttackAnimations[animId] then
+                            if Config.AttackAnimations[tostring(track.Animation.AnimationId):match("%d+")] then
                                 targetInAttack = true
-                                if Config.Enabled and guiMob then 
-                                    firesignal(guiMob.MouseButton1Down) 
-                                end
+                                if Config.Enabled and guiMob then firesignal(guiMob.MouseButton1Down) end
                                 break
                             end
                         end
@@ -90,11 +99,23 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-    
-    RangeCircle.Color = targetInAttack and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+
+    -- // อัปเดตตำแหน่งวงกลมบนพื้น (ติดเท้า)
+    if root then
+        local color = targetInAttack and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+        -- ยิง Raycast ลงพื้นเพื่อให้วงกลมแนบสนิทกับพื้นจริงๆ
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {char}
+        local result = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), params)
+        local groundPos = result and result.Position or (root.Position - Vector3.new(0, 3, 0))
+        
+        Update3DCircle(groundPos, Config.Range, color)
+    else
+        for _, l in pairs(Lines) do l.Visible = false end
+    end
 end)
 
--- UI System
+-- UI System (เหมือนเดิม)
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 200, 0, 190)
@@ -106,7 +127,7 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPERX PARRY"
+Title.Text = "HYPERX PARRY 3D"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
