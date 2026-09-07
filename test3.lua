@@ -1,9 +1,8 @@
--- [[ HyperX Ultra Fast Auto Parry - 3D Ground Drawing ]] --
+-- [[ HyperX Ultra Fast & Slim Glowing Parry ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -12,6 +11,7 @@ local Config = {
     Enabled = true,
     Range = 15,
     VisualEnabled = true,
+    -- Pre-cached IDs as keys for O(1) Lookup Speed
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
         ["74968262036854"] = true, ["82666958311998"] = true, ["78432063483146"] = true,
@@ -20,17 +20,7 @@ local Config = {
     }
 }
 
--- // สร้างเส้น 16 เส้นเพื่อประกอบเป็นวงกลม (3D Perspective)
-local Segments = 16 
-local Lines = {}
-for i = 1, Segments do
-    local L = Drawing.new("Line")
-    L.Thickness = 1.5
-    L.Transparency = 1
-    Lines[i] = L
-end
-
--- Caching Gui
+-- Caching Objects
 local CachedGuiMob = nil
 local function GetGuiMob()
     if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
@@ -40,57 +30,66 @@ local function GetGuiMob()
     return guiMob
 end
 
--- // ฟังก์ชันวาดวงกลม 3D บนพื้น
-local function Update3DCircle(origin, radius, color)
-    local step = (math.pi * 2) / Segments
-    local points = {}
+-- // Creating the Slim Glowing Ring
+local Ring = Instance.new("Part")
+Ring.Name = "HyperX_SlimRing"
+Ring.Anchored = true
+Ring.CanCollide = false
+Ring.CastShadow = false
+Ring.Material = Enum.Material.Neon
+Ring.Transparency = 0.2 -- แสงชัดขึ้น
+Ring.Size = Vector3.new(1, 1, 1)
+Ring.Parent = workspace
 
-    for i = 0, Segments do
-        local angle = i * step
-        local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-        local worldPos = origin + offset
-        local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
-        points[i+1] = {Pos = Vector2.new(screenPos.X, screenPos.Y), Visible = onScreen}
-    end
+local RingMesh = Instance.new("SpecialMesh", Ring)
+RingMesh.MeshId = "rbxassetid://3270017"
+-- ปรับ Z ให้เหลือ 0.02 เพื่อความบางเฉียบแบบเส้น ESP
+RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.02)
 
-    for i = 1, Segments do
-        local p1 = points[i]
-        local p2 = points[i+1]
-        local line = Lines[i]
-        
-        if p1.Visible and p2.Visible and Config.VisualEnabled then
-            line.Visible = true
-            line.From = p1.Pos
-            line.To = p2.Pos
-            line.Color = color
-        else
-            line.Visible = false
-        end
-    end
-end
-
--- Core Loop
+-- // Ultra Fast Detection Loop
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then 
+        Ring.Transparency = 1 
+        return 
+    end
+
+    -- Visual Positioning
+    if Config.VisualEnabled then
+        Ring.Transparency = 0.2
+        Ring.Position = root.Position - Vector3.new(0, 2.95, 0)
+        Ring.CFrame = CFrame.new(Ring.Position) * CFrame.Angles(math.rad(90), 0, 0)
+        RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.02)
+    else
+        Ring.Transparency = 1
+    end
+
     local guiMob = GetGuiMob()
     local targetInAttack = false
 
-    -- // ค้นหา Killer และเช็คการโจมตี
+    -- Scanner
     for _, v in ipairs(workspace:GetChildren()) do
         if v:IsA("Model") and v ~= char and v:FindFirstChild("Lookscriptkiller", true) then
             local kRoot = v:FindFirstChild("HumanoidRootPart")
             local kHum = v:FindFirstChildOfClass("Humanoid")
             
-            if kRoot and kHum and root then
+            if kRoot and kHum then
                 local dist = (root.Position - kRoot.Position).Magnitude
                 if dist <= Config.Range then
                     local animator = kHum:FindFirstChildOfClass("Animator")
                     if animator then
+                        -- ดึง Tracks ออกมาเช็คทันที
                         for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                            if Config.AttackAnimations[tostring(track.Animation.AnimationId):match("%d+")] then
+                            local id = tostring(track.Animation.AnimationId):match("%d+")
+                            if Config.AttackAnimations[id] then
                                 targetInAttack = true
-                                if Config.Enabled and guiMob then firesignal(guiMob.MouseButton1Down) end
+                                if Config.Enabled and guiMob then
+                                    -- สั่งงานทันทีในเฟรมนี้
+                                    firesignal(guiMob.MouseButton1Down)
+                                    -- เพิ่มความมั่นใจด้วยการกดย้ำ (Optional)
+                                    -- firesignal(guiMob.MouseButton1Down) 
+                                end
                                 break
                             end
                         end
@@ -99,35 +98,24 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
-    -- // อัปเดตตำแหน่งวงกลมบนพื้น (ติดเท้า)
-    if root then
-        local color = targetInAttack and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
-        -- ยิง Raycast ลงพื้นเพื่อให้วงกลมแนบสนิทกับพื้นจริงๆ
-        local params = RaycastParams.new()
-        params.FilterDescendantsInstances = {char}
-        local result = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), params)
-        local groundPos = result and result.Position or (root.Position - Vector3.new(0, 3, 0))
-        
-        Update3DCircle(groundPos, Config.Range, color)
-    else
-        for _, l in pairs(Lines) do l.Visible = false end
-    end
+    
+    -- Glowing Status Color
+    Ring.Color = targetInAttack and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 30, 30)
 end)
 
--- UI System (เหมือนเดิม)
+-- // UI System (Mobile Friendly)
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 200, 0, 190)
 Main.Position = UDim2.new(0.5, -100, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPERX PARRY 3D"
+Title.Text = "HYPERX PARRY V2"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -150,7 +138,7 @@ local function CreateToggle(name, prop, pos)
 end
 
 CreateToggle("Auto Parry", "Enabled", 45)
-CreateToggle("Range Visual", "VisualEnabled", 85)
+CreateToggle("Glow Range", "VisualEnabled", 85)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
