@@ -1,8 +1,9 @@
--- [[ HyperX Ultra Fast Auto Parry - Hollow Ring Update ]] --
+-- [[ HyperX Ultra Fast Auto Parry - Drawing Circle Edition ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -19,7 +20,14 @@ local Config = {
     }
 }
 
--- Caching Gui
+-- Drawing Object for Ground Range
+local RangeCircle = Drawing.new("Circle")
+RangeCircle.Thickness = 1.5
+RangeCircle.NumSides = 100 
+RangeCircle.Filled = false
+RangeCircle.Transparency = 1
+
+-- Caching Gui Button
 local CachedGuiMob = nil
 local function GetGuiMob()
     if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
@@ -29,56 +37,50 @@ local function GetGuiMob()
     return guiMob
 end
 
--- // Optimized Hollow Ring Visual
-local Ring = Instance.new("Part")
-Ring.Name = "ParryRangeVisual"
-Ring.Anchored = true
-Ring.CanCollide = false
-Ring.CastShadow = false
-Ring.Transparency = 0.5
-Ring.Material = Enum.Material.Neon
-Ring.Size = Vector3.new(1, 1, 1)
-Ring.Parent = workspace
-
-local RingMesh = Instance.new("SpecialMesh", Ring)
-RingMesh.MeshId = "rbxassetid://3270017" -- Torus Mesh (Hollow Ring)
-RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.5)
-
--- Core Logic
+-- Core Loop
 RunService.RenderStepped:Connect(function()
-    if not Config.Enabled or not LocalPlayer.Character then 
-        Ring.Transparency = 1
-        return 
-    end
-    
-    local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    -- Update Ring Visual
-    Ring.Transparency = Config.VisualEnabled and 0.2 or 1
-    Ring.Position = root.Position - Vector3.new(0, 2.9, 0)
-    Ring.CFrame = CFrame.new(Ring.Position) * CFrame.Angles(math.rad(90), 0, 0)
-    RingMesh.Scale = Vector3.new(Config.Range * 2, Config.Range * 2, 0.1) -- ความหนาของเส้นปรับที่แกน Z
-
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
     local guiMob = GetGuiMob()
+    
+    -- Update Ground Circle (Drawing)
+    if Config.Enabled and Config.VisualEnabled and root then
+        local groundPos = root.Position - Vector3.new(0, 2.9, 0)
+        local screenPos, onScreen = Camera:WorldToViewportPoint(groundPos)
+        
+        if onScreen then
+            local edgePos = Camera:WorldToViewportPoint(groundPos + (Camera.CFrame.RightVector * Config.Range))
+            local radius = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(edgePos.X, edgePos.Y)).Magnitude
+            
+            RangeCircle.Visible = true
+            RangeCircle.Position = Vector2.new(screenPos.X, screenPos.Y)
+            RangeCircle.Radius = radius
+        else
+            RangeCircle.Visible = false
+        end
+    else
+        RangeCircle.Visible = false
+    end
+
     local targetInAttack = false
 
+    -- Detection Logic
     for _, v in ipairs(workspace:GetChildren()) do
-        if v:IsA("Model") and v ~= LocalPlayer.Character and v:FindFirstChild("Lookscriptkiller", true) then
+        if v:IsA("Model") and v ~= char and v:FindFirstChild("Lookscriptkiller", true) then
             local kRoot = v:FindFirstChild("HumanoidRootPart")
             local kHum = v:FindFirstChildOfClass("Humanoid")
             
-            if kRoot and kHum then
+            if kRoot and kHum and root then
                 local dist = (root.Position - kRoot.Position).Magnitude
                 if dist <= Config.Range then
                     local animator = kHum:FindFirstChildOfClass("Animator")
                     if animator then
                         for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                            local id = tostring(track.Animation.AnimationId):match("%d+")
-                            if Config.AttackAnimations[id] then
+                            local animId = tostring(track.Animation.AnimationId):match("%d+")
+                            if Config.AttackAnimations[animId] then
                                 targetInAttack = true
-                                if guiMob and firesignal then
-                                    firesignal(guiMob.MouseButton1Down)
+                                if Config.Enabled and guiMob then 
+                                    firesignal(guiMob.MouseButton1Down) 
                                 end
                                 break
                             end
@@ -88,13 +90,14 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-    Ring.Color = targetInAttack and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+    
+    RangeCircle.Color = targetInAttack and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
 end)
 
 -- UI System
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 180)
+Main.Size = UDim2.new(0, 200, 0, 190)
 Main.Position = UDim2.new(0.5, -100, 0.4, 0)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.Active = true
@@ -102,43 +105,42 @@ Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "HYPERX FAST PARRY"
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Text = "HYPERX PARRY"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
 
-local function CreateToggle(name, default, pos, callback)
+local function CreateToggle(name, prop, pos)
     local btn = Instance.new("TextButton", Main)
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
     btn.Position = UDim2.new(0.05, 0, 0, pos)
-    btn.BackgroundColor3 = default and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-    btn.Text = name .. (default and ": ON" or ": OFF")
+    btn.BackgroundColor3 = Config[prop] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
+    btn.Text = name .. (Config[prop] and ": ON" or ": OFF")
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.Gotham
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Click:Connect(function()
-        local state = not (btn.BackgroundColor3 == Color3.fromRGB(46, 204, 113))
-        btn.BackgroundColor3 = state and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-        btn.Text = name .. (state and ": ON" or ": OFF")
-        callback(state)
+        Config[prop] = not Config[prop]
+        btn.BackgroundColor3 = Config[prop] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
+        btn.Text = name .. (Config[prop] and ": ON" or ": OFF")
     end)
 end
 
-CreateToggle("Auto Parry", true, 40, function(v) Config.Enabled = v end)
-CreateToggle("Visual Range", true, 75, function(v) Config.VisualEnabled = v end)
+CreateToggle("Auto Parry", "Enabled", 45)
+CreateToggle("Range Visual", "VisualEnabled", 85)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
-RangeLabel.Position = UDim2.new(0, 0, 0, 110)
+RangeLabel.Position = UDim2.new(0, 0, 0, 130)
 RangeLabel.Text = "Range: " .. Config.Range
 RangeLabel.TextColor3 = Color3.new(1, 1, 1)
 RangeLabel.BackgroundTransparency = 1
 
 local RangeSlider = Instance.new("TextButton", Main)
 RangeSlider.Size = UDim2.new(0.9, 0, 0, 10)
-RangeSlider.Position = UDim2.new(0.05, 0, 0, 135)
+RangeSlider.Position = UDim2.new(0.05, 0, 0, 155)
 RangeSlider.Text = ""
 RangeSlider.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
 Instance.new("UICorner", RangeSlider)
