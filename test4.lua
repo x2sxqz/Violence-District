@@ -22,7 +22,7 @@ local ModernV2 = ok and result or nil
 if not ModernV2 then
     -- Primary: Vercel mirror (no rate limit)
     local loaderOk, loaderResult = pcall(function()
-        local source = game:HttpGet("https://raw.githubusercontent.com/Kys-lol/KysHubNewUI/refs/heads/main/ModernLua.txt")
+        local source = game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui2/src.lua")
         local fn, compileErr = loadstring(source)
         if not fn then error(compileErr) end
         return fn()
@@ -33,7 +33,7 @@ if not ModernV2 then
         warn("[KysHub] Vercel mirror failed, trying GitHub fallback:", loaderResult)
         -- Fallback: GitHub raw (may be rate-limited)
         local fallbackOk, fallbackResult = pcall(function()
-            local source = game:HttpGet("https://raw.githubusercontent.com/Kys-lol/KysHubNewUI/refs/heads/main/MainV2.lua")
+            local source = game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui2/src2.lua")
             local fn, compileErr = loadstring(source)
             if not fn then error(compileErr) end
             return fn()
