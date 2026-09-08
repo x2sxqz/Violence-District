@@ -1,4 +1,4 @@
--- [[ HyperX Ultra Aggressive Parry - Procedural Beam Edition ]] --
+-- [[ HyperX Ultra Aggressive Parry - Optimized Face Target & Rapid Trigger ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -9,9 +9,9 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local Config = {
     Enabled = true,
-    Range = 8,
+    Range = 12,
     VisualEnabled = true,
-    Segments = 64, -- จำนวนเหลี่ยมของวงกลม (ยิ่งเยอะยิ่งเนียน)
+    Segments = 24,
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
         ["74968262036854"] = true, ["82666958311998"] = true, ["78432063483146"] = true,
@@ -20,66 +20,67 @@ local Config = {
     }
 }
 
--- [ Procedural Circle Setup ]
-local VisualFolder = Instance.new("Folder", workspace)
-VisualFolder.Name = "HyperX_Circle"
-
+-- [ Procedural Visual Setup ]
 local Attachments = {}
 local Beams = {}
-
 for i = 1, Config.Segments do
-    local att = Instance.new("Attachment", workspace.Terrain) -- ใช้ Terrain เป็น Parent เพื่อความเสถียร
-    Attachments[i] = att
+    Attachments[i] = Instance.new("Attachment", workspace.Terrain)
+    Beams[i] = Instance.new("Beam", workspace.Terrain)
+    Beams[i].Width0 = 0.3
+    Beams[i].Width1 = 0.3
+    Beams[i].FaceCamera = true
+    Beams[i].Transparency = NumberSequence.new(0.1)
 end
 
 for i = 1, Config.Segments do
-    local beam = Instance.new("Beam", workspace.Terrain)
-    beam.Attachment0 = Attachments[i]
-    beam.Attachment1 = Attachments[i == Config.Segments and 1 or i + 1]
-    beam.Width0 = 0.2
-    beam.Width1 = 0.2
-    beam.FaceCamera = true
-    beam.Transparency = NumberSequence.new(0.3)
-    Beams[i] = beam
+    Beams[i].Attachment0 = Attachments[i]
+    Beams[i].Attachment1 = Attachments[i == Config.Segments and 1 or i + 1]
 end
 
--- [ Cache & Core Logic ]
-local CachedGuiMob = nil
-local KillerModel = nil
-
+-- [ Functions ]
 local function GetGuiMob()
-    if CachedGuiMob and CachedGuiMob.Parent then return CachedGuiMob end
     local mob = PlayerGui:FindFirstChild("Survivor-mob")
-    CachedGuiMob = mob and mob:FindFirstChild("Gui-mob", true)
-    return CachedGuiMob
+    return mob and mob:FindFirstChild("Gui-mob", true)
 end
 
+-- [ Killer Logic & Instant Face ]
+local KillerModel = nil
 local function ConnectKiller(killer)
     local hum = killer:WaitForChild("Humanoid", 10)
     local animator = hum and hum:WaitForChild("Animator", 10)
+    
     if animator then
         animator.AnimationPlayed:Connect(function(track)
             if not Config.Enabled then return end
-            local id = tostring(track.Animation.AnimationId):match("%d+")
-            if Config.AttackAnimations[id] then
+            
+            local animId = tostring(track.Animation.AnimationId):match("%d+")
+            if Config.AttackAnimations[animId] then
                 local char = LocalPlayer.Character
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 local kRoot = killer:FindFirstChild("HumanoidRootPart")
                 
-                if root and kRoot and (root.Position - kRoot.Position).Magnitude <= Config.Range then
-                    -- Face Killer Immediately
-                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(kRoot.Position.X, root.Position.Y, kRoot.Position.Z))
-                    
-                    -- Trigger Parry
-                    local btn = GetGuiMob()
-                    if btn then firesignal(btn.MouseButton1Down) end
+                if root and kRoot then
+                    local dist = (root.Position - kRoot.Position).Magnitude
+                    if dist <= Config.Range + 3 then
+                        -- [ Force Face Killer ]
+                        local targetPos = Vector3.new(kRoot.Position.X, root.Position.Y, kRoot.Position.Z)
+                        root.CFrame = CFrame.lookAt(root.Position, targetPos)
+                        
+                        -- [ Rapid Trigger to Beat Latency ]
+                        local btn = GetGuiMob()
+                        if btn then
+                            firesignal(btn.MouseButton1Down)
+                            task.wait() -- Smallest delay
+                            firesignal(btn.MouseButton1Down)
+                        end
+                    end
                 end
             end
         end)
     end
 end
 
--- [ Killer Scanner ]
+-- [ Scanner ]
 task.spawn(function()
     while true do
         for _, v in ipairs(workspace:GetChildren()) do
@@ -90,41 +91,40 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(1)
+        task.wait(0.3)
     end
 end)
 
--- [ Update Loop ]
-RunService.RenderStepped:Connect(function()
+-- [ Loop Update ]
+RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     
     if root and Config.VisualEnabled then
-        local pos = root.Position - Vector3.new(0, 2.8, 0)
-        local inRange = false
+        local basePos = root.Position - Vector3.new(0, 2.9, 0)
+        local isTargeting = false
         
         if KillerModel and KillerModel:FindFirstChild("HumanoidRootPart") then
             if (root.Position - KillerModel.HumanoidRootPart.Position).Magnitude <= Config.Range then
-                inRange = true
+                isTargeting = true
             end
         end
-
-        local color = inRange and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50)
+        
+        local color = isTargeting and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 40, 40)
         
         for i = 1, Config.Segments do
             local angle = (i - 1) * (math.pi * 2 / Config.Segments)
             local offset = Vector3.new(math.cos(angle) * Config.Range, 0, math.sin(angle) * Config.Range)
-            Attachments[i].Position = pos + offset
-            
+            Attachments[i].Position = basePos + offset
             Beams[i].Enabled = true
             Beams[i].Color = ColorSequence.new(color)
         end
     else
-        for _, b in ipairs(Beams) do b.Enabled = false end
+        for i = 1, Config.Segments do Beams[i].Enabled = false end
     end
 end)
 
--- [ UI ]
+-- [ Simplified UI ]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 180, 0, 160)
@@ -134,13 +134,6 @@ Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPERX PROCEDURAL"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.BackgroundTransparency = 1
-Title.Font = Enum.Font.GothamBold
-
 local function CreateToggle(name, prop, pos)
     local btn = Instance.new("TextButton", Main)
     btn.Size = UDim2.new(0.9, 0, 0, 30)
@@ -148,7 +141,7 @@ local function CreateToggle(name, prop, pos)
     btn.BackgroundColor3 = Config[prop] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
     btn.Text = name
     btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.Gotham
+    btn.Font = Enum.Font.GothamSemibold
     Instance.new("UICorner", btn)
     btn.MouseButton1Click:Connect(function()
         Config[prop] = not Config[prop]
@@ -157,7 +150,7 @@ local function CreateToggle(name, prop, pos)
 end
 
 CreateToggle("Auto Parry", "Enabled", 40)
-CreateToggle("Show Range", "VisualEnabled", 75)
+CreateToggle("Show Circle", "VisualEnabled", 75)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
@@ -165,26 +158,29 @@ RangeLabel.Position = UDim2.new(0, 0, 0, 110)
 RangeLabel.Text = "Range: " .. Config.Range
 RangeLabel.TextColor3 = Color3.new(1, 1, 1)
 RangeLabel.BackgroundTransparency = 1
+RangeLabel.Font = Enum.Font.Gotham
 
 local RangeSlider = Instance.new("TextButton", Main)
-RangeSlider.Size = UDim2.new(0.9, 0, 0, 8)
+RangeSlider.Size = UDim2.new(0.9, 0, 0, 6)
 RangeSlider.Position = UDim2.new(0.05, 0, 0, 135)
 RangeSlider.Text = ""
 RangeSlider.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
 Instance.new("UICorner", RangeSlider)
 
 local SliderPoint = Instance.new("Frame", RangeSlider)
-SliderPoint.Size = UDim2.new(0, 10, 2, 0)
-SliderPoint.Position = UDim2.new((Config.Range-1)/31, -5, -0.5, 0)
+SliderPoint.Size = UDim2.new(0, 12, 0, 12)
+SliderPoint.AnchorPoint = Vector2.new(0.5, 0.5)
+SliderPoint.Position = UDim2.new((Config.Range-1)/34, 0, 0.5, 0)
 SliderPoint.BackgroundColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", SliderPoint).CornerRadius = UDim.new(1, 0)
 
 RangeSlider.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         local move = RunService.RenderStepped:Connect(function()
             local mousePos = UserInputService:GetMouseLocation().X
             local relPos = math.clamp((mousePos - RangeSlider.AbsolutePosition.X) / RangeSlider.AbsoluteSize.X, 0, 1)
-            Config.Range = math.floor(1 + (relPos * 31))
-            SliderPoint.Position = UDim2.new(relPos, -5, -0.5, 0)
+            Config.Range = math.floor(1 + (relPos * 34))
+            SliderPoint.Position = UDim2.new(relPos, 0, 0.5, 0)
             RangeLabel.Text = "Range: " .. Config.Range
         end)
         input.Changed:Connect(function()
