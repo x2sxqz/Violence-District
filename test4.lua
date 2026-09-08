@@ -99,12 +99,12 @@ if ModernV2 then
     -- MAIN SCRIPT
     -- =====================================
     Window = ModernV2:Window({
-        Title = "KysHub CRACKED√ by <iry hub>",
-        Content = "Violence District v1.5.7",
+        Title = "REAPER CRACK",
+        Content = "Violence District",
         Uitransparent = 0.15,
         Size = UDim2.fromOffset(500, 320),
         Color = Color3.fromRGB(255, 0, 0),
-        Image = "80891639562743",
+        Image = "86279908104891",
         ShowUser = true,
         Search = true,
         ConfigEnabled = true,
