@@ -1,4 +1,4 @@
--- [[ HyperX Ultra Aggressive Parry - Beam & Face Target Edition ]] --
+-- [[ HyperX Ultra Aggressive Parry - Procedural Beam Edition ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -11,6 +11,7 @@ local Config = {
     Enabled = true,
     Range = 8,
     VisualEnabled = true,
+    Segments = 64, -- จำนวนเหลี่ยมของวงกลม (ยิ่งเยอะยิ่งเนียน)
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
         ["74968262036854"] = true, ["82666958311998"] = true, ["78432063483146"] = true,
@@ -19,31 +20,30 @@ local Config = {
     }
 }
 
--- [ Visual Setup: Beam + Attachment ]
-local VisualPart = Instance.new("Part")
-VisualPart.Name = "HyperX_RangeVisual"
-VisualPart.Anchored = true
-VisualPart.CanCollide = false
-VisualPart.CanTouch = false
-VisualPart.Transparency = 1
-VisualPart.Size = Vector3.new(1, 1, 1)
-VisualPart.Parent = workspace
+-- [ Procedural Circle Setup ]
+local VisualFolder = Instance.new("Folder", workspace)
+VisualFolder.Name = "HyperX_Circle"
 
-local Att0 = Instance.new("Attachment", VisualPart)
-local Att1 = Instance.new("Attachment", VisualPart)
+local Attachments = {}
+local Beams = {}
 
-local RangeBeam = Instance.new("Beam", VisualPart)
-RangeBeam.Attachment0 = Att0
-RangeBeam.Attachment1 = Att1
-RangeBeam.Texture = "rbxassetid://11413804300" -- Circular Texture
-RangeBeam.TextureMode = Enum.TextureMode.Static
-RangeBeam.FaceCamera = true
-RangeBeam.Width0 = Config.Range * 2
-RangeBeam.Width1 = Config.Range * 2
-RangeBeam.Transparency = NumberSequence.new(0.5)
-RangeBeam.LightEmission = 1
+for i = 1, Config.Segments do
+    local att = Instance.new("Attachment", workspace.Terrain) -- ใช้ Terrain เป็น Parent เพื่อความเสถียร
+    Attachments[i] = att
+end
 
--- [ Cache Variables ]
+for i = 1, Config.Segments do
+    local beam = Instance.new("Beam", workspace.Terrain)
+    beam.Attachment0 = Attachments[i]
+    beam.Attachment1 = Attachments[i == Config.Segments and 1 or i + 1]
+    beam.Width0 = 0.2
+    beam.Width1 = 0.2
+    beam.FaceCamera = true
+    beam.Transparency = NumberSequence.new(0.3)
+    Beams[i] = beam
+end
+
+-- [ Cache & Core Logic ]
 local CachedGuiMob = nil
 local KillerModel = nil
 
@@ -54,7 +54,6 @@ local function GetGuiMob()
     return CachedGuiMob
 end
 
--- [ Killer Listener & Auto Face ]
 local function ConnectKiller(killer)
     local hum = killer:WaitForChild("Humanoid", 10)
     local animator = hum and hum:WaitForChild("Animator", 10)
@@ -95,36 +94,37 @@ task.spawn(function()
     end
 end)
 
--- [ Fast Performance Loop ]
+-- [ Update Loop ]
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     
     if root and Config.VisualEnabled then
-        -- Update Visual Position
-        local groundPos = root.Position - Vector3.new(0, 2.8, 0)
-        VisualPart.CFrame = CFrame.new(groundPos) * CFrame.Angles(math.rad(90), 0, 0)
+        local pos = root.Position - Vector3.new(0, 2.8, 0)
+        local inRange = false
         
-        -- Update Beam Range
-        RangeBeam.Width0 = Config.Range * 2
-        RangeBeam.Width1 = Config.Range * 2
-        
-        -- Check Range Color
-        local targetInAttackRange = false
         if KillerModel and KillerModel:FindFirstChild("HumanoidRootPart") then
             if (root.Position - KillerModel.HumanoidRootPart.Position).Magnitude <= Config.Range then
-                targetInAttackRange = true
+                inRange = true
             end
         end
+
+        local color = inRange and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50)
         
-        RangeBeam.Enabled = true
-        RangeBeam.Color = ColorSequence.new(targetInAttackRange and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50))
+        for i = 1, Config.Segments do
+            local angle = (i - 1) * (math.pi * 2 / Config.Segments)
+            local offset = Vector3.new(math.cos(angle) * Config.Range, 0, math.sin(angle) * Config.Range)
+            Attachments[i].Position = pos + offset
+            
+            Beams[i].Enabled = true
+            Beams[i].Color = ColorSequence.new(color)
+        end
     else
-        RangeBeam.Enabled = false
+        for _, b in ipairs(Beams) do b.Enabled = false end
     end
 end)
 
--- [ UI System ]
+-- [ UI ]
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 180, 0, 160)
@@ -136,7 +136,7 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPERX PARRY V4"
+Title.Text = "HYPERX PROCEDURAL"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -157,7 +157,7 @@ local function CreateToggle(name, prop, pos)
 end
 
 CreateToggle("Auto Parry", "Enabled", 40)
-CreateToggle("Range Visual", "VisualEnabled", 75)
+CreateToggle("Show Range", "VisualEnabled", 75)
 
 local RangeLabel = Instance.new("TextLabel", Main)
 RangeLabel.Size = UDim2.new(1, 0, 0, 20)
