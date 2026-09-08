@@ -1,9 +1,8 @@
--- [[ HyperX Ultra Aggressive Parry - 3D Drawing Circle ]] --
+-- [[ HyperX Ultra Aggressive Parry - Beam & Face Target Edition ]] --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -20,15 +19,29 @@ local Config = {
     }
 }
 
--- [ Drawing Visual Setup ]
-local Segments = 16
-local CircleLines = {}
-for i = 1, Segments do
-    local Line = Drawing.new("Line")
-    Line.Thickness = 1.5
-    Line.Transparency = 1
-    CircleLines[i] = Line
-end
+-- [ Visual Setup: Beam + Attachment ]
+local VisualPart = Instance.new("Part")
+VisualPart.Name = "HyperX_RangeVisual"
+VisualPart.Anchored = true
+VisualPart.CanCollide = false
+VisualPart.CanTouch = false
+VisualPart.Transparency = 1
+VisualPart.Size = Vector3.new(1, 1, 1)
+VisualPart.Parent = workspace
+
+local Att0 = Instance.new("Attachment", VisualPart)
+local Att1 = Instance.new("Attachment", VisualPart)
+
+local RangeBeam = Instance.new("Beam", VisualPart)
+RangeBeam.Attachment0 = Att0
+RangeBeam.Attachment1 = Att1
+RangeBeam.Texture = "rbxassetid://11413804300" -- Circular Texture
+RangeBeam.TextureMode = Enum.TextureMode.Static
+RangeBeam.FaceCamera = true
+RangeBeam.Width0 = Config.Range * 2
+RangeBeam.Width1 = Config.Range * 2
+RangeBeam.Transparency = NumberSequence.new(0.5)
+RangeBeam.LightEmission = 1
 
 -- [ Cache Variables ]
 local CachedGuiMob = nil
@@ -41,35 +54,7 @@ local function GetGuiMob()
     return CachedGuiMob
 end
 
--- [ 3D Circle Drawing Logic ]
-local function Update3DCircle(origin, radius, color)
-    local points = {}
-    local step = (math.pi * 2) / Segments
-    
-    for i = 0, Segments do
-        local angle = i * step
-        local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-        local screenPos, onScreen = Camera:WorldToViewportPoint(origin + offset)
-        points[i+1] = {Pos = Vector2.new(screenPos.X, screenPos.Y), Visible = onScreen}
-    end
-
-    for i = 1, Segments do
-        local line = CircleLines[i]
-        local p1 = points[i]
-        local p2 = points[i+1]
-        
-        if p1.Visible and p2.Visible and Config.VisualEnabled then
-            line.Visible = true
-            line.From = p1.Pos
-            line.To = p2.Pos
-            line.Color = color
-        else
-            line.Visible = false
-        end
-    end
-end
-
--- [ Killer Listener ]
+-- [ Killer Listener & Auto Face ]
 local function ConnectKiller(killer)
     local hum = killer:WaitForChild("Humanoid", 10)
     local animator = hum and hum:WaitForChild("Animator", 10)
@@ -78,9 +63,15 @@ local function ConnectKiller(killer)
             if not Config.Enabled then return end
             local id = tostring(track.Animation.AnimationId):match("%d+")
             if Config.AttackAnimations[id] then
-                local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
                 local kRoot = killer:FindFirstChild("HumanoidRootPart")
+                
                 if root and kRoot and (root.Position - kRoot.Position).Magnitude <= Config.Range then
+                    -- Face Killer Immediately
+                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(kRoot.Position.X, root.Position.Y, kRoot.Position.Z))
+                    
+                    -- Trigger Parry
                     local btn = GetGuiMob()
                     if btn then firesignal(btn.MouseButton1Down) end
                 end
@@ -109,14 +100,16 @@ RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     
-    if root then
-        -- Raycast to find actual ground
-        local params = RaycastParams.new()
-        params.FilterDescendantsInstances = {char}
-        local ray = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), params)
-        local groundPos = ray and ray.Position or (root.Position - Vector3.new(0, 3, 0))
+    if root and Config.VisualEnabled then
+        -- Update Visual Position
+        local groundPos = root.Position - Vector3.new(0, 2.8, 0)
+        VisualPart.CFrame = CFrame.new(groundPos) * CFrame.Angles(math.rad(90), 0, 0)
         
-        -- Check distance for color
+        -- Update Beam Range
+        RangeBeam.Width0 = Config.Range * 2
+        RangeBeam.Width1 = Config.Range * 2
+        
+        -- Check Range Color
         local targetInAttackRange = false
         if KillerModel and KillerModel:FindFirstChild("HumanoidRootPart") then
             if (root.Position - KillerModel.HumanoidRootPart.Position).Magnitude <= Config.Range then
@@ -124,10 +117,10 @@ RunService.RenderStepped:Connect(function()
             end
         end
         
-        local circleColor = targetInAttackRange and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-        Update3DCircle(groundPos, Config.Range, circleColor)
+        RangeBeam.Enabled = true
+        RangeBeam.Color = ColorSequence.new(targetInAttackRange and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50))
     else
-        for _, l in pairs(CircleLines) do l.Visible = false end
+        RangeBeam.Enabled = false
     end
 end)
 
