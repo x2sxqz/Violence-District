@@ -1,15 +1,16 @@
--- [[ REAPER AUTO PARRY - MAXIMUM SPEED VERSION ]] --
+-- [[ HYPERX AUTO PARRY - INSTANT REACTION VERSION ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Config = {
     AutoParry = true,
-    ParryRange = 8, -- ค่าที่แนะนำ 7-9
+    ParryRange = 8, 
     ShowVisual = true,
-    Cooldown = 0, -- ปรับเป็น 0 ตามคำขอ
+    Cooldown = 0,
     AttackAnimations = {
         ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
         ["74968262036854"] = true, ["82666958311998"] = true, ["78432063483146"] = true,
@@ -18,13 +19,21 @@ local Config = {
     }
 }
 
-local lastParryTick = 0
-
 local function GetGuiMob()
     local pGui = LocalPlayer:FindFirstChild("PlayerGui")
     local mobGui = pGui and pGui:FindFirstChild("Survivor-mob")
     local controls = mobGui and mobGui:FindFirstChild("Controls")
     return controls and controls:FindFirstChild("Gui-mob")
+end
+
+local function PerformParry()
+    local guiMob = GetGuiMob()
+    if guiMob then
+        -- กดทันทีที่ Event ทำงาน
+        firesignal(guiMob.MouseButton1Down)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end
 end
 
 -- Visualizer
@@ -46,47 +55,56 @@ local function GetKiller()
     return nil
 end
 
--- ใช้ RenderStepped เพื่อความเร็วสูงสุดในการเช็ค (ก่อนเรนเดอร์เฟรม)
+-- ตรวจสอบการขยับและระยะ (RenderStepped)
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    
-    if not Config.AutoParry or not root then 
-        RangeCircle.Transparency = 1 
-        return 
-    end
+    if not root then return end
 
     RangeCircle.Transparency = Config.ShowVisual and 0.5 or 1
     RangeCircle.Size = Vector3.new(0.1, Config.ParryRange * 2, Config.ParryRange * 2)
     RangeCircle.Position = root.Position - Vector3.new(0, 2.5, 0)
     RangeCircle.Color = Color3.fromRGB(255, 0, 0)
+end)
 
-    local killerChar = GetKiller()
-    if killerChar then
-        local kRoot = killerChar:FindFirstChild("HumanoidRootPart")
-        local kHum = killerChar:FindFirstChildOfClass("Humanoid")
-        local kAnimator = kHum and kHum:FindFirstChildOfClass("Animator")
+-- ใช้ Event Detection (เร็วกว่าการ Loop เช็ค AnimationTracks)
+local currentKiller = nil
+local connection = nil
 
-        if kRoot and kAnimator then
-            local dist = (root.Position - kRoot.Position).Magnitude
-            if dist <= Config.ParryRange then
-                for _, track in ipairs(kAnimator:GetPlayingAnimationTracks()) do
-                    local animId = tostring(track.Animation.AnimationId):match("%d+")
-                    if Config.AttackAnimations[animId] then
+local function ListenToKiller(killer)
+    if connection then connection:Disconnect() end
+    local hum = killer:FindFirstChildOfClass("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    
+    if animator then
+        connection = animator.AnimationPlayed:Connect(function(track)
+            if not Config.AutoParry then return end
+            
+            local animId = tostring(track.Animation.AnimationId):match("%d+")
+            if Config.AttackAnimations[animId] then
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                local kRoot = killer:FindFirstChild("HumanoidRootPart")
+                
+                if root and kRoot then
+                    local dist = (root.Position - kRoot.Position).Magnitude
+                    if dist <= Config.ParryRange then
                         RangeCircle.Color = Color3.fromRGB(0, 255, 0)
-                        
-                        -- Execute Parry
-                        if tick() - lastParryTick >= Config.Cooldown then
-                            local guiMob = GetGuiMob()
-                            if guiMob then
-                                lastParryTick = tick()
-                                firesignal(guiMob.MouseButton1Down)
-                            end
-                        end
-                        break
+                        PerformParry()
                     end
                 end
             end
+        end)
+    end
+end
+
+-- ตรวจหา Killer ตลอดเวลา
+task.spawn(function()
+    while task.wait(0.1) do
+        local killer = GetKiller()
+        if killer and killer ~= currentKiller then
+            currentKiller = killer
+            ListenToKiller(killer)
         end
     end
 end)
@@ -102,7 +120,7 @@ Frame.Draggable = true
 
 local Label = Instance.new("TextLabel", Frame)
 Label.Size = UDim2.new(1, 0, 0, 30)
-Label.Text = "HYPERX PARRY (CD: 0)"
+Label.Text = "HYPERX INSTANT"
 Label.TextColor3 = Color3.new(1,1,1)
 Label.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 
@@ -120,7 +138,6 @@ end
 AddButton("Auto Parry: ON", 40, function(b)
     Config.AutoParry = not Config.AutoParry
     b.Text = "Auto Parry: " .. (Config.AutoParry and "ON" or "OFF")
-    b.BackgroundColor3 = Config.AutoParry and Color3.fromRGB(50, 100, 50) or Color3.fromRGB(100, 50, 50)
 end).BackgroundColor3 = Color3.fromRGB(50, 100, 50)
 
 AddButton("Visual: ON", 75, function(b)
