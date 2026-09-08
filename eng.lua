@@ -44,7 +44,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 
 local Window = Fluent:CreateWindow({
-Title = "Reaper Hub",
+Title = "REAPER HUB",
 SubTitle = "Violence District [BETA]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
