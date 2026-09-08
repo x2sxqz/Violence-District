@@ -1,152 +1,141 @@
--- [[ HYPERX AUTO PARRY - INSTANT REACTION VERSION ]] --
+-- [[ AUTO PARRY STANDALONE - BY HYPERX ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local CoreGui = game:GetService("CoreGui")
-
 local LocalPlayer = Players.LocalPlayer
+
+-- Configuration
 local Config = {
-    AutoParry = true,
-    ParryRange = 8, 
-    ShowVisual = true,
-    Cooldown = 0,
-    AttackAnimations = {
-        ["139369275981139"] = true, ["121216847022485"] = true, ["78935059863801"] = true,
-        ["74968262036854"] = true, ["82666958311998"] = true, ["78432063483146"] = true,
-        ["132817836308238"] = true, ["111920872708571"] = true, ["138720291317243"] = true,
-        ["130593238885843"] = true, ["106871536134254"] = true, ["109402730355822"] = true
-    }
+    Enabled = true,
+    Aggressive = false,
+    Distance = 8,
+    ShowCircle = true,
+    CircleColor = Color3.fromRGB(255, 0, 0)
 }
 
-local function GetGuiMob()
-    local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-    local mobGui = pGui and pGui:FindFirstChild("Survivor-mob")
-    local controls = mobGui and mobGui:FindFirstChild("Controls")
-    return controls and controls:FindFirstChild("Gui-mob")
-end
+-- Animation IDs to Parry
+local ATTACK_ANIMS = {
+    ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
+    ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
+    ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
+    ["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
+    ["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
+    ["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
+    ["121216847022485"] = true
+}
 
-local function PerformParry()
-    local guiMob = GetGuiMob()
-    if guiMob then
-        -- กดทันทีที่ Event ทำงาน
-        firesignal(guiMob.MouseButton1Down)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-    end
-end
+-- Internal State
+local ParryState = { Cooldown = false, Attached = {} }
 
--- Visualizer
-local RangeCircle = Instance.new("Part")
-RangeCircle.Shape = Enum.PartType.Cylinder
-RangeCircle.Material = Enum.Material.ForceField
-RangeCircle.Transparency = 1
-RangeCircle.CanCollide = false
-RangeCircle.Anchored = true
-RangeCircle.Rotation = Vector3.new(0, 0, 90)
-RangeCircle.Parent = workspace
+-- UI Creation
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "HyperX_ParryGUI"
 
-local function GetKiller()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character and p.Character:FindFirstChild("Lookscriptkiller", true) then
-            return p.Character
-        end
-    end
-    return nil
-end
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 200, 0, 180)
+MainFrame.Position = UDim2.new(0.5, -100, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
 
--- ตรวจสอบการขยับและระยะ (RenderStepped)
-RunService.RenderStepped:Connect(function()
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+local UICorner = Instance.new("UICorner", MainFrame)
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(255, 0, 0)
+UIStroke.Thickness = 2
 
-    RangeCircle.Transparency = Config.ShowVisual and 0.5 or 1
-    RangeCircle.Size = Vector3.new(0.1, Config.ParryRange * 2, Config.ParryRange * 2)
-    RangeCircle.Position = root.Position - Vector3.new(0, 2.5, 0)
-    RangeCircle.Color = Color3.fromRGB(255, 0, 0)
-end)
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "HYPER-X PARRY"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Title.Font = Enum.Font.GothamBold
 
--- ใช้ Event Detection (เร็วกว่าการ Loop เช็ค AnimationTracks)
-local currentKiller = nil
-local connection = nil
-
-local function ListenToKiller(killer)
-    if connection then connection:Disconnect() end
-    local hum = killer:FindFirstChildOfClass("Humanoid")
-    local animator = hum and hum:FindFirstChildOfClass("Animator")
+-- Toggle Helper
+local function CreateToggle(name, pos, flag)
+    local Btn = Instance.new("TextButton", MainFrame)
+    Btn.Size = UDim2.new(0.9, 0, 0, 30)
+    Btn.Position = pos
+    Btn.Text = name .. ": " .. (Config[flag] and "ON" or "OFF")
+    Btn.BackgroundColor3 = Config[flag] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(150, 50, 50)
+    Btn.TextColor3 = Color3.new(1, 1, 1)
+    Btn.Font = Enum.Font.Gotham
+    Instance.new("UICorner", Btn)
     
-    if animator then
-        connection = animator.AnimationPlayed:Connect(function(track)
-            if not Config.AutoParry then return end
+    Btn.MouseButton1Click:Connect(function()
+        Config[flag] = not Config[flag]
+        Btn.Text = name .. ": " .. (Config[flag] and "ON" or "OFF")
+        Btn.BackgroundColor3 = Config[flag] and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(150, 50, 50)
+    end)
+end
+
+CreateToggle("Auto Parry", UDim2.new(0.05, 0, 0, 40), "Enabled")
+CreateToggle("Aggressive", UDim2.new(0.05, 0, 0, 75), "Aggressive")
+CreateToggle("Show Range", UDim2.new(0.05, 0, 0, 110), "ShowCircle")
+
+-- Range Circle
+local RangeAdorn = Instance.new("CylinderHandleAdornment", ScreenGui)
+RangeAdorn.Height = 0.1
+RangeAdorn.Color3 = Config.CircleColor
+RangeAdorn.Transparency = 0.5
+RangeAdorn.AlwaysOnTop = false
+
+-- Core Functions
+local function ExecuteParry()
+    if ParryState.Cooldown then return end
+    pcall(function()
+        local remote = ReplicatedStorage.Remotes.Items["Parrying Dagger"].parry
+        for i=1, 5 do remote:FireServer() end
+        -- Mobile Tap Simulation
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0)
+        task.wait(0.01)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+    end)
+    ParryState.Cooldown = true
+    task.delay(0.8, function() ParryState.Cooldown = false end) -- Anti-spam cd
+end
+
+local function AttachSensor(char)
+    if not char or ParryState.Attached[char] then return end
+    local anim = char:WaitForChild("Humanoid", 5):WaitForChild("Animator", 5)
+    ParryState.Attached[char] = anim.AnimationPlayed:Connect(function(track)
+        if not Config.Enabled then return end
+        local id = track.Animation.AnimationId:match("%d+")
+        if ATTACK_ANIMS[id] or ATTACK_ANIMS["rbxassetid://"..id] then
+            local myChar = LocalPlayer.Character
+            if not myChar or myChar:GetAttribute("State") == "Downed" then return end
             
-            local animId = tostring(track.Animation.AnimationId):match("%d+")
-            if Config.AttackAnimations[animId] then
-                local char = LocalPlayer.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                local kRoot = killer:FindFirstChild("HumanoidRootPart")
-                
-                if root and kRoot then
-                    local dist = (root.Position - kRoot.Position).Magnitude
-                    if dist <= Config.ParryRange then
-                        RangeCircle.Color = Color3.fromRGB(0, 255, 0)
-                        PerformParry()
-                    end
-                end
+            local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
+            if Config.Aggressive and dist <= 12 then
+                ExecuteParry()
+            elseif dist <= Config.Distance then
+                ExecuteParry()
             end
-        end)
-    end
-end
-
--- ตรวจหา Killer ตลอดเวลา
-task.spawn(function()
-    while task.wait(0.1) do
-        local killer = GetKiller()
-        if killer and killer ~= currentKiller then
-            currentKiller = killer
-            ListenToKiller(killer)
         end
-    end
-end)
-
--- UI Setup
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 180, 0, 140)
-Frame.Position = UDim2.new(0.1, 0, 0.5, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Frame.Active = true
-Frame.Draggable = true
-
-local Label = Instance.new("TextLabel", Frame)
-Label.Size = UDim2.new(1, 0, 0, 30)
-Label.Text = "HYPERX INSTANT"
-Label.TextColor3 = Color3.new(1,1,1)
-Label.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-
-local function AddButton(text, yPos, callback)
-    local btn = Instance.new("TextButton", Frame)
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
-    btn.Position = UDim2.new(0.05, 0, 0, yPos)
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.MouseButton1Click:Connect(function() callback(btn) end)
-    return btn
+    end)
 end
 
-AddButton("Auto Parry: ON", 40, function(b)
-    Config.AutoParry = not Config.AutoParry
-    b.Text = "Auto Parry: " .. (Config.AutoParry and "ON" or "OFF")
-end).BackgroundColor3 = Color3.fromRGB(50, 100, 50)
+-- Monitor Players
+local function SetupPlayer(p)
+    if p == LocalPlayer then return end
+    p.CharacterAdded:Connect(AttachSensor)
+    if p.Character then AttachSensor(p.Character) end
+end
 
-AddButton("Visual: ON", 75, function(b)
-    Config.ShowVisual = not Config.ShowVisual
-    b.Text = "Visual: " .. (Config.ShowVisual and "ON" or "OFF")
-end)
+Players.PlayerAdded:Connect(SetupPlayer)
+for _, p in pairs(Players:GetPlayers()) do SetupPlayer(p) end
 
-AddButton("Range: " .. Config.ParryRange, 110, function(b)
-    Config.ParryRange = Config.ParryRange + 1
-    if Config.ParryRange > 12 then Config.ParryRange = 5 end
-    b.Text = "Range: " .. Config.ParryRange
+-- Rendering Loop
+RunService.RenderStepped:Connect(function()
+    if Config.ShowCircle and Config.Enabled and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+        RangeAdorn.Visible = true
+        RangeAdorn.Radius = Config.Distance
+        RangeAdorn.InnerRadius = Config.Distance - 0.2
+        RangeAdorn.Adornee = workspace.Terrain
+        RangeAdorn.CFrame = CFrame.new(LocalPlayer.Character.PrimaryPart.Position - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
+    else
+        RangeAdorn.Visible = false
+    end
 end)
