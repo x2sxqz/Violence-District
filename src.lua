@@ -1,4 +1,4 @@
--- 4
+-- 5
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -43,7 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA]",
+SubTitle = "Violence District [BETA 5]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -269,7 +269,6 @@ local function Trigger()
 end
 
 _G.HyperX_Loop = RunService.RenderStepped:Connect(function()
-    -- เช็ค Config.Enabled ตรงๆ แบบตัวที่มึงให้มา
     if not Config.Enabled or State.busy then return end
     
     local prompt = PlayerGui:FindFirstChild("SkillCheckPromptGui")
@@ -308,7 +307,7 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY (FINAL FIX)
+-- 🔥 HYPER-X AUTO PARRY (OPTIMIZED ROLE & UI)
 --=========================================
 
 local Config = {
@@ -335,6 +334,15 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
+-- // ระบบเช็ค Role ตามตัวอย่าง ESP
+local function GetRole(player)
+    local team = player.Team and player.Team.Name or "None"
+    local teamLower = team:lower()
+    if string.find(teamLower, "killer") or string.find(teamLower, "murder") or string.find(teamLower, "beast") then return "Killer"
+    elseif string.find(teamLower, "survivor") or string.find(teamLower, "innocent") or string.find(teamLower, "human") then return "Survivors" end
+    return "Spectator"
+end
+
 -- // Hybrid Input
 local function PerformInput()
     pcall(function()
@@ -351,10 +359,7 @@ end
 
 -- // Core Logic
 local function ExecuteParry()
-    if State.Cooldown then return end
-    local myRole = LP:GetAttribute("Role")
-    if myRole == "Spectator" or myRole == "Killer" then return end
-
+    if State.Cooldown or GetRole(LP) ~= "Survivors" then return end
     State.Cooldown = true
     task.spawn(function()
         for i = 1, 10 do State.ParryRemote:FireServer() end
@@ -384,7 +389,7 @@ local function AttachSensor(char)
     end)
 end
 
--- // [ UI Elements Order: Slider Top / Toggle Bottom ]
+-- // [ UI Components Order: Slider บน / Toggle ล่าง ]
 Tabs.Automatic:AddSlider("ParryRange", {
     Title = "Parry Range",
     Default = 8,
@@ -406,7 +411,7 @@ ParryToggle:OnChanged(function()
     Config.ShowCircle = ParryToggle.Value
 end)
 
--- // Visualizer & Role Logic
+-- // Visualizer & Role Color Logic
 local RangeAdorn = Instance.new("CylinderHandleAdornment")
 RangeAdorn.Height = 0.1
 RangeAdorn.Transparency = 0.5
@@ -415,9 +420,10 @@ RangeAdorn.Parent = workspace.Terrain
 RunService.RenderStepped:Connect(function()
     if Config.ShowCircle and LP.Character and LP.Character.PrimaryPart then
         local myPos = LP.Character.PrimaryPart.Position
-        local myRole = LP:GetAttribute("Role")
+        local myRole = GetRole(LP)
         State.EnemyInRange = false
         
+        -- ค้นหา Killer ในระยะ
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character.PrimaryPart then
                 if (myPos - p.Character.PrimaryPart.Position).Magnitude <= Config.Distance then
@@ -427,10 +433,11 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- [Color Logic]
-        if myRole == "Spectator" or myRole == "Killer" then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาว
+        -- [Color Logic Based on GetRole]
+        if myRole == "Killer" or myRole == "Spectator" then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาวคงที่
         else
+            -- เฉพาะ Survivors ถึงจะเปลี่ยนสีตามสถานะ
             if State.Cooldown then
                 RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม
             elseif State.EnemyInRange then
@@ -441,7 +448,7 @@ RunService.RenderStepped:Connect(function()
         end
 
         RangeAdorn.Visible = true
-        RangeAdorn.Radius = Config.Distance -- อัปเดตทันทีที่ Slider เปลี่ยน
+        RangeAdorn.Radius = Config.Distance -- บังคับอัปเดต Radius ทุกเฟรม
         RangeAdorn.InnerRadius = Config.Distance - 0.2
         RangeAdorn.Adornee = workspace.Terrain
         RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
@@ -450,7 +457,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // Player Setup
+-- // Initial Setup
 for _, p in pairs(Players:GetPlayers()) do
     if p ~= LP then
         p.CharacterAdded:Connect(AttachSensor)
@@ -458,6 +465,7 @@ for _, p in pairs(Players:GetPlayers()) do
     end
 end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
