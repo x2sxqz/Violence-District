@@ -58,7 +58,7 @@ local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/L
 local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
 Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-Automatic = Window:AddTab({ Title = "Automatic", Icon = "circle-play" }),
+Automatic = Window:AddTab({ Title = "Automatic", Icon = "zap" }),
 Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
 Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" }),
