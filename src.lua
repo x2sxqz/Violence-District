@@ -1,4 +1,4 @@
--- 6
+-- 7
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -43,7 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA 6]",
+SubTitle = "Violence District [BETA 7]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -307,7 +307,7 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY (STABLE & SMART COLOR)
+-- 🔥 HYPER-X AUTO PARRY (SEPARATED UI)
 --=========================================
 
 local Config = {
@@ -318,7 +318,7 @@ local Config = {
 
 local State = {
     Cooldown = false,
-    EnemyInRange = false,
+    KillerInRange = false,
     Connections = {},
     ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
     ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
@@ -389,7 +389,7 @@ local function AttachSensor(char)
     end)
 end
 
--- // [ UI Elements Order: Slider Top / Toggle Bottom ]
+-- // [ UI Elements Order ]
 Tabs.Automatic:AddSlider("ParryRange", {
     Title = "Parry Distance",
     Default = 8, Min = 2, Max = 10, Rounding = 1,
@@ -398,14 +398,20 @@ Tabs.Automatic:AddSlider("ParryRange", {
     end
 })
 
-local ParryToggle = Tabs.Automatic:AddToggle("AutoParry", {
-    Title = "Auto Parry & Range", 
+local ShowRangeToggle = Tabs.Automatic:AddToggle("ShowRange", {
+    Title = "Show Range", 
     Default = false
 })
+ShowRangeToggle:OnChanged(function()
+    Config.ShowCircle = ShowRangeToggle.Value
+end)
 
-ParryToggle:OnChanged(function()
-    Config.Enabled = ParryToggle.Value
-    Config.ShowCircle = ParryToggle.Value
+local AutoParryToggle = Tabs.Automatic:AddToggle("AutoParry", {
+    Title = "Auto Parry", 
+    Default = false
+})
+AutoParryToggle:OnChanged(function()
+    Config.Enabled = AutoParryToggle.Value
 end)
 
 -- // Visualizer & Advanced Color Logic
@@ -418,16 +424,15 @@ RunService.RenderStepped:Connect(function()
     if Config.ShowCircle and LP.Character and LP.Character.PrimaryPart then
         local myPos = LP.Character.PrimaryPart.Position
         local myRole = GetRole(LP)
-        State.EnemyInRange = false
+        State.KillerInRange = false
         
         -- ตรวจสอบหาเฉพาะ Killer ในระยะเท่านั้น
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character.PrimaryPart then
-                local pRole = GetRole(p)
-                if pRole == "Killer" then
+                if GetRole(p) == "Killer" then
                     local dist = (myPos - p.Character.PrimaryPart.Position).Magnitude
                     if dist <= Config.Distance then
-                        State.EnemyInRange = true
+                        State.KillerInRange = true
                         break
                     end
                 end
@@ -436,18 +441,17 @@ RunService.RenderStepped:Connect(function()
 
         -- [Color Logic Update]
         if myRole == "Killer" or myRole == "Spectator" then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาว (ไม่ใช่ Survivor)
+            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาว
         else
             if State.Cooldown then
-                RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม (Cooldown)
-            elseif State.EnemyInRange then
-                RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง (Killer อยู่ใกล้!)
+                RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม
+            elseif State.KillerInRange then
+                RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง
             else
-                RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว (ปลอดภัย/พร้อมใช้)
+                RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว
             end
         end
 
-        -- บังคับอัปเดต Radius และ Visibility ทันที
         RangeAdorn.Visible = true
         RangeAdorn.Radius = Config.Distance
         RangeAdorn.InnerRadius = Config.Distance - 0.2
@@ -466,6 +470,7 @@ for _, p in pairs(Players:GetPlayers()) do
     end
 end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
