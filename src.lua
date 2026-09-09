@@ -515,12 +515,12 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ช่องกรอกตัวเลขความเร็ว
+-- walkspeed limit
 Tabs.Player:AddInput("WSV", {
-    Title = "Speed Value",
+    Title = "Speed Value (Limit 40)",
     Default = "16",
     Callback = function(v)
-        WSValue = tonumber(v) or 16
+        WSValue = math.clamp(tonumber(v) or 16, 1, 40)
     end
 })
 
