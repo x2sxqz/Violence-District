@@ -1,4 +1,4 @@
--- [[ HYPERX ELITE AIM HUB - NEW DESIGN ]] --
+-- [[ HYPERX ELITE AIM HUB - NEW DESIGN ]] -- 2
 local LP = game:GetService("Players").LocalPlayer
 local PG = LP:FindFirstChild("PlayerGui") or LP:WaitForChild("PlayerGui")
 
@@ -135,14 +135,14 @@ end
 
 -- Adding Items
 Section("Survivor Combat")
-NewToggle("ToF Silent Aim", "TOF_SilentAim", Color3.fromRGB(0, 150, 255))
-NewToggle("Flashlight Silent", "FLASH_SilentAim", Color3.fromRGB(0, 150, 255))
-NewToggle("Main Aimbot", "AIM_Enabled", Color3.fromRGB(0, 150, 255))
+AddToggle("ToF Silent Aim", "TOF_SilentAim", Color3.fromRGB(0, 150, 255))
+AddToggle("Flashlight Silent", "FLASH_SilentAim", Color3.fromRGB(0, 150, 255))A
+AddToggle("Main Aimbot", "AIM_Enabled", Color3.fromRGB(0, 150, 255))
 
 Section("Killer Combat")
-if getgenv().VeilConfig then NewToggle("Veil Spear Aim", getgenv().VeilConfig, Color3.fromRGB(255, 0, 50)) end
-NewToggle("Cure Flask Aim", "KILLER_SilentAimFlask", Color3.fromRGB(255, 0, 50))
-NewToggle("Target Lock", "AimLockButton", Color3.fromRGB(255, 0, 50))
+if getgenv().VeilConfig then AddToggle("Veil Spear Aim", getgenv().VeilConfig, Color3.fromRGB(255, 0, 50)) end
+AddToggle("Cure Flask Aim", "KILLER_SilentAimFlask", Color3.fromRGB(255, 0, 50))
+AddToggle("Target Lock", "AimLockButton", Color3.fromRGB(255, 0, 50))
 
 -- Close
 local Close = Instance.new("TextButton", Header)
