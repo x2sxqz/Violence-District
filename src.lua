@@ -1,6 +1,4 @@
---=========================
--- 🔥 Lib Load Screen Reaper Hub 16
---=========================
+-- 1
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -40,11 +38,11 @@ local lp = LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 
 local Window = Fluent:CreateWindow({
-Title = "Reaper Hub",
+Title = "REAPER HUB",
 SubTitle = "Violence District [BETA]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
@@ -60,6 +58,7 @@ local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/L
 local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
 Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+Automatic = Window:AddTab({ Title = "Automatic", Icon = "circle-play" }),
 Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
 Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" }),
@@ -213,13 +212,6 @@ end)
 
 --Main
 --Aimsilent
-
-
-
-
-
-
-
 --skillcheck
 if _G.HyperX_Loop then _G.HyperX_Loop:Disconnect() end
 
@@ -312,6 +304,163 @@ _G.HyperX_Loop = RunService.RenderStepped:Connect(function()
         end
     end
 end)
+
+
+-- Automatic
+-- // Configuration
+local Config = {
+    Enabled = false,
+    Distance = 8,
+    ShowCircle = false
+}
+
+-- // Data & State
+local State = {
+    Cooldown = false,
+    EnemyInRange = false,
+    Connections = {},
+    ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
+    ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+}
+
+local ATTACK_ANIMS = {
+    ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
+    ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
+    ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
+    ["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
+    ["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
+    ["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
+    ["121216847022485"] = true
+}
+
+-- // Hybrid Input (PC & Mobile Optimized)
+local function PerformInput()
+    pcall(function()
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        local mobBtn = playerGui and playerGui:FindFirstChild("Survivor-mob", true) and playerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+
+        if mobBtn and mobBtn.Visible then
+            firesignal(mobBtn.MouseButton1Down) -- Mobile
+        else
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0) -- PC
+            task.wait(0.01)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+        end
+    end)
+end
+
+-- // Core Parry Logic
+local function ExecuteParry()
+    if State.Cooldown then return end
+    State.Cooldown = true
+    
+    task.spawn(function()
+        for i = 1, 10 do 
+            State.ParryRemote:FireServer() 
+        end
+        PerformInput()
+    end)
+end
+
+State.ResultRemote.OnClientEvent:Connect(function(_, cd)
+    task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
+end)
+
+-- // Character Sensor
+local function AttachSensor(char)
+    if not char or State.Connections[char] then return end
+    local hum = char:WaitForChild("Humanoid", 10)
+    local animator = hum:WaitForChild("Animator", 10)
+    
+    State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
+        if not Config.Enabled or State.Cooldown then return end
+        
+        local id = track.Animation.AnimationId:match("%d+")
+        if ATTACK_ANIMS[id] then
+            local myChar = LocalPlayer.Character
+            if not myChar or myChar:GetAttribute("State") == "Downed" then return end
+            
+            local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
+            if dist <= Config.Distance then
+                ExecuteParry()
+            end
+        end
+    end)
+end
+
+-- // UI Components (Adding to existing Tab)
+local ParryToggle = Tabs.Automatic:AddToggle("AutoParry", {
+    Title = "Auto Parry", 
+    Default = false
+})
+
+ParryToggle:OnChanged(function()
+    Config.Enabled = ParryToggle.Value
+    Config.ShowCircle = ParryToggle.Value
+end)
+
+local RangeSlider = Tabs.Automatic:AddSlider("Range", {
+    Title = "Parry Range",
+    Description = "",
+    Default = 8,
+    Min = 2,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        Config.Distance = Value
+    end
+})
+
+-- // Range Visualizer & Optimized Color Logic
+local RangeAdorn = Instance.new("CylinderHandleAdornment")
+RangeAdorn.Height = 0.1
+RangeAdorn.Transparency = 0.5
+RangeAdorn.Parent = game.CoreGui
+
+RunService.RenderStepped:Connect(function()
+    if Config.ShowCircle and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("PrimaryPart") then
+        local myPos = LocalPlayer.Character.PrimaryPart.Position
+        State.EnemyInRange = false
+        
+        -- ตรวจสอบ Killer ในระยะ
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("PrimaryPart") then
+                local dist = (myPos - p.Character.PrimaryPart.Position).Magnitude
+                if dist <= Config.Distance then
+                    State.EnemyInRange = true
+                    break
+                end
+            end
+        end
+
+        -- [Color Logic] 
+        if State.Cooldown then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- คูลดาวน์: ส้ม
+        elseif State.EnemyInRange then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- Killer ในวง: แดง
+        else
+            RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- พร้อมใช้: เขียว
+        end
+
+        RangeAdorn.Visible = true
+        RangeAdorn.Radius = Config.Distance
+        RangeAdorn.InnerRadius = Config.Distance - 0.2
+        RangeAdorn.Adornee = workspace.Terrain
+        RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
+    else
+        RangeAdorn.Visible = false
+    end
+end)
+
+-- // Initialization
+local function Setup(p)
+    if p == LocalPlayer then return end
+    p.CharacterAdded:Connect(AttachSensor)
+    if p.Character then AttachSensor(p.Character) end
+end
+
+Players.PlayerAdded:Connect(Setup)
+for _, p in pairs(Players:GetPlayers()) do Setup(p) end
 
 
 
@@ -422,7 +571,6 @@ local ESP_Config = {
     Roles = {
         ["Survivors"] = Color3.fromRGB(0, 255, 0),
         ["Killer"] = Color3.fromRGB(255, 0, 0),
-        ["SCP"] = Color3.fromRGB(255, 0, 0),
         ["Spectator"] = Color3.fromRGB(255, 255, 255)
     }
 }
@@ -430,7 +578,7 @@ local ESP_Config = {
 
 local RoleDropdown = Tabs.ESP:AddDropdown("ESPRoles", {
     Title = "Select Type",
-    Values = {"Survivors", "Killer", "SCP", "Spectator"},
+    Values = {"Survivors", "Killer", "Spectator"},
     Multi = true,
     Default = {},
 })
@@ -459,8 +607,6 @@ local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
     local teamLower = team:lower()
     if string.find(teamLower, "killer") or string.find(teamLower, "murder") or string.find(teamLower, "beast") then return "Killer"
-elseif string.find(teamLower, "scp") or string.find(teamLower, "entity") then 
-        return "SCP"
     elseif string.find(teamLower, "survivor") or string.find(teamLower, "innocent") or string.find(teamLower, "human") then return "Survivors" end
     return "Spectator"
 end
