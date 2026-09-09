@@ -1,4 +1,4 @@
--- 7
+-- 8
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -43,7 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA 7]",
+SubTitle = "Violence District [BETA 8]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -399,7 +399,8 @@ Tabs.Automatic:AddSlider("ParryRange", {
 })
 
 local ShowRangeToggle = Tabs.Automatic:AddToggle("ShowRange", {
-    Title = "Show Range", 
+    Title = "Show Range",
+    Description = "Range Circle not showing? Adjust Range a little bit",
     Default = false
 })
 ShowRangeToggle:OnChanged(function()
@@ -568,7 +569,6 @@ end
 
 Tabs.Player:AddToggle("NC", {
     Title = "Noclip",
-    Description = "",
     Default = false,
     Callback = function(Value)
         SetNoclip(Value)
