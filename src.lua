@@ -1,4 +1,4 @@
--- 5
+-- 6
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -43,7 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA 5]",
+SubTitle = "Violence District [BETA 6]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -307,7 +307,7 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY (OPTIMIZED ROLE & UI)
+-- 🔥 HYPER-X AUTO PARRY (STABLE & SMART COLOR)
 --=========================================
 
 local Config = {
@@ -334,7 +334,7 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // ระบบเช็ค Role ตามตัวอย่าง ESP
+-- // Role Checker Logic
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
     local teamLower = team:lower()
@@ -343,7 +343,7 @@ local function GetRole(player)
     return "Spectator"
 end
 
--- // Hybrid Input
+-- // Hybrid Input System
 local function PerformInput()
     pcall(function()
         local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
@@ -389,20 +389,17 @@ local function AttachSensor(char)
     end)
 end
 
--- // [ UI Components Order: Slider บน / Toggle ล่าง ]
+-- // [ UI Elements Order: Slider Top / Toggle Bottom ]
 Tabs.Automatic:AddSlider("ParryRange", {
-    Title = "Parry Range",
-    Default = 8,
-    Min = 2,
-    Max = 10,
-    Rounding = 1,
+    Title = "Parry Distance",
+    Default = 8, Min = 2, Max = 10, Rounding = 1,
     Callback = function(Value)
         Config.Distance = Value
     end
 })
 
 local ParryToggle = Tabs.Automatic:AddToggle("AutoParry", {
-    Title = "Auto Parry", 
+    Title = "Auto Parry & Range", 
     Default = false
 })
 
@@ -411,7 +408,7 @@ ParryToggle:OnChanged(function()
     Config.ShowCircle = ParryToggle.Value
 end)
 
--- // Visualizer & Role Color Logic
+-- // Visualizer & Advanced Color Logic
 local RangeAdorn = Instance.new("CylinderHandleAdornment")
 RangeAdorn.Height = 0.1
 RangeAdorn.Transparency = 0.5
@@ -423,32 +420,36 @@ RunService.RenderStepped:Connect(function()
         local myRole = GetRole(LP)
         State.EnemyInRange = false
         
-        -- ค้นหา Killer ในระยะ
+        -- ตรวจสอบหาเฉพาะ Killer ในระยะเท่านั้น
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character.PrimaryPart then
-                if (myPos - p.Character.PrimaryPart.Position).Magnitude <= Config.Distance then
-                    State.EnemyInRange = true
-                    break
+                local pRole = GetRole(p)
+                if pRole == "Killer" then
+                    local dist = (myPos - p.Character.PrimaryPart.Position).Magnitude
+                    if dist <= Config.Distance then
+                        State.EnemyInRange = true
+                        break
+                    end
                 end
             end
         end
 
-        -- [Color Logic Based on GetRole]
+        -- [Color Logic Update]
         if myRole == "Killer" or myRole == "Spectator" then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาวคงที่
+            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาว (ไม่ใช่ Survivor)
         else
-            -- เฉพาะ Survivors ถึงจะเปลี่ยนสีตามสถานะ
             if State.Cooldown then
-                RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม
+                RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม (Cooldown)
             elseif State.EnemyInRange then
-                RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง
+                RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง (Killer อยู่ใกล้!)
             else
-                RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว
+                RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว (ปลอดภัย/พร้อมใช้)
             end
         end
 
+        -- บังคับอัปเดต Radius และ Visibility ทันที
         RangeAdorn.Visible = true
-        RangeAdorn.Radius = Config.Distance -- บังคับอัปเดต Radius ทุกเฟรม
+        RangeAdorn.Radius = Config.Distance
         RangeAdorn.InnerRadius = Config.Distance - 0.2
         RangeAdorn.Adornee = workspace.Terrain
         RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
@@ -457,7 +458,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // Initial Setup
+-- // Initialization
 for _, p in pairs(Players:GetPlayers()) do
     if p ~= LP then
         p.CharacterAdded:Connect(AttachSensor)
@@ -465,7 +466,6 @@ for _, p in pairs(Players:GetPlayers()) do
     end
 end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
-
 
 
 
