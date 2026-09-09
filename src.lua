@@ -1,4 +1,4 @@
--- 3
+-- 4
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -308,7 +308,7 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY (FLUENT VERSION)
+-- 🔥 HYPER-X AUTO PARRY (FINAL FIX)
 --=========================================
 
 local Config = {
@@ -335,27 +335,27 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Hybrid Input (จากต้นฉบับ เปลี่ยนเฉพาะ Mobile เป็น firesignal)
+-- // Hybrid Input
 local function PerformInput()
     pcall(function()
-        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        local mobBtn = playerGui and playerGui:FindFirstChild("Survivor-mob", true) and playerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
-
+        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
         if mobBtn and mobBtn.Visible then
-            firesignal(mobBtn.MouseButton1Down) -- Mobile: firesignal
+            firesignal(mobBtn.MouseButton1Down)
         else
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0) -- PC: Right Click
+            VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0)
             task.wait(0.01)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+            VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0)
         end
     end)
 end
 
--- // Core Logic (จากต้นฉบับ)
+-- // Core Logic
 local function ExecuteParry()
     if State.Cooldown then return end
+    local myRole = LP:GetAttribute("Role")
+    if myRole == "Spectator" or myRole == "Killer" then return end
+
     State.Cooldown = true
-    
     task.spawn(function()
         for i = 1, 10 do State.ParryRemote:FireServer() end
         PerformInput()
@@ -373,23 +373,20 @@ local function AttachSensor(char)
     
     State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
         if not Config.Enabled or State.Cooldown then return end
-        
-        local id = track.Animation.AnimationId:match("%d+")
-        if ATTACK_ANIMS[id] then
-            local myChar = LocalPlayer.Character
-            if not myChar or myChar:GetAttribute("State") == "Downed" then return end
-            
-            local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
-            if dist <= Config.Distance then
-                ExecuteParry()
+        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
+            local myChar = LP.Character
+            if myChar and myChar:GetAttribute("State") ~= "Downed" then
+                if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
+                    ExecuteParry()
+                end
             end
         end
     end)
 end
 
--- // Fluent UI Components (Slider on top)
+-- // [ UI Elements Order: Slider Top / Toggle Bottom ]
 Tabs.Automatic:AddSlider("ParryRange", {
-    Title = "Parry Distance",
+    Title = "Parry Range",
     Default = 8,
     Min = 2,
     Max = 10,
@@ -400,7 +397,7 @@ Tabs.Automatic:AddSlider("ParryRange", {
 })
 
 local ParryToggle = Tabs.Automatic:AddToggle("AutoParry", {
-    Title = "Auto Parry & Range", 
+    Title = "Auto Parry", 
     Default = false
 })
 
@@ -409,35 +406,42 @@ ParryToggle:OnChanged(function()
     Config.ShowCircle = ParryToggle.Value
 end)
 
--- // Visualizer & Color Logic
+-- // Visualizer & Role Logic
 local RangeAdorn = Instance.new("CylinderHandleAdornment")
 RangeAdorn.Height = 0.1
 RangeAdorn.Transparency = 0.5
-RangeAdorn.Parent = workspace.Terrain -- เสถียรกว่า CoreGui ในบาง Executor
+RangeAdorn.Parent = workspace.Terrain
 
 RunService.RenderStepped:Connect(function()
-    if Config.ShowCircle and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-        local myPos = LocalPlayer.Character.PrimaryPart.Position
+    if Config.ShowCircle and LP.Character and LP.Character.PrimaryPart then
+        local myPos = LP.Character.PrimaryPart.Position
+        local myRole = LP:GetAttribute("Role")
         State.EnemyInRange = false
         
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character.PrimaryPart then
-                local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
-                if d <= Config.Distance then State.EnemyInRange = true break end
+            if p ~= LP and p.Character and p.Character.PrimaryPart then
+                if (myPos - p.Character.PrimaryPart.Position).Magnitude <= Config.Distance then
+                    State.EnemyInRange = true
+                    break
+                end
             end
         end
 
         -- [Color Logic]
-        if State.Cooldown then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม (Cooldown)
-        elseif State.EnemyInRange then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง (มีคนในระยะ)
+        if myRole == "Spectator" or myRole == "Killer" then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255) -- ขาว
         else
-            RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว (พร้อม)
+            if State.Cooldown then
+                RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม
+            elseif State.EnemyInRange then
+                RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง
+            else
+                RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว
+            end
         end
 
         RangeAdorn.Visible = true
-        RangeAdorn.Radius = Config.Distance
+        RangeAdorn.Radius = Config.Distance -- อัปเดตทันทีที่ Slider เปลี่ยน
         RangeAdorn.InnerRadius = Config.Distance - 0.2
         RangeAdorn.Adornee = workspace.Terrain
         RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
@@ -446,16 +450,16 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // Start Player Logic
+-- // Player Setup
 for _, p in pairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then
+    if p ~= LP then
         p.CharacterAdded:Connect(AttachSensor)
         if p.Character then AttachSensor(p.Character) end
     end
 end
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(AttachSensor)
-end)
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
+
 
 
 
