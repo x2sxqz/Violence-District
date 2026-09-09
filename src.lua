@@ -1,4 +1,4 @@
--- 1
+-- 2
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -307,15 +307,17 @@ end)
 
 
 -- Automatic
--- // Configuration
-local Config = {
+--=========================
+-- 🔥 Automatic (Auto Parry)
+--=========================
+
+local ParryConfig = {
     Enabled = false,
     Distance = 8,
     ShowCircle = false
 }
 
--- // Data & State
-local State = {
+local ParryState = {
     Cooldown = false,
     EnemyInRange = false,
     Connections = {},
@@ -323,7 +325,7 @@ local State = {
     ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
 }
 
-local ATTACK_ANIMS = {
+local PARRY_ANIMS = {
     ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
     ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
     ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
@@ -333,118 +335,115 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Hybrid Input (PC & Mobile Optimized)
-local function PerformInput()
+-- // Hybrid Click System
+local function PerformParryInput()
     pcall(function()
-        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        local mobBtn = playerGui and playerGui:FindFirstChild("Survivor-mob", true) and playerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
 
         if mobBtn and mobBtn.Visible then
-            firesignal(mobBtn.MouseButton1Down) -- Mobile
+            -- Mobile: ใช้ firesignal ตามคำสั่ง
+            firesignal(mobBtn.MouseButton1Down)
         else
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0) -- PC
+            -- PC: ใช้ VIM เดิม
+            VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0)
             task.wait(0.01)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+            VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0)
         end
     end)
 end
 
--- // Core Parry Logic
 local function ExecuteParry()
-    if State.Cooldown then return end
-    State.Cooldown = true
+    if ParryState.Cooldown then return end
+    ParryState.Cooldown = true
     
     task.spawn(function()
         for i = 1, 10 do 
-            State.ParryRemote:FireServer() 
+            ParryState.ParryRemote:FireServer() 
         end
-        PerformInput()
+        PerformParryInput()
     end)
 end
 
-State.ResultRemote.OnClientEvent:Connect(function(_, cd)
-    task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
+ParryState.ResultRemote.OnClientEvent:Connect(function(_, cd)
+    task.delay(tonumber(cd) or 0.8, function() ParryState.Cooldown = false end)
 end)
 
--- // Character Sensor
-local function AttachSensor(char)
-    if not char or State.Connections[char] then return end
+local function AttachParrySensor(char)
+    if not char or ParryState.Connections[char] then return end
     local hum = char:WaitForChild("Humanoid", 10)
     local animator = hum:WaitForChild("Animator", 10)
     
-    State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
-        if not Config.Enabled or State.Cooldown then return end
+    ParryState.Connections[char] = animator.AnimationPlayed:Connect(function(track)
+        if not ParryConfig.Enabled or ParryState.Cooldown then return end
         
         local id = track.Animation.AnimationId:match("%d+")
-        if ATTACK_ANIMS[id] then
-            local myChar = LocalPlayer.Character
+        if PARRY_ANIMS[id] then
+            local myChar = LP.Character
             if not myChar or myChar:GetAttribute("State") == "Downed" then return end
             
             local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
-            if dist <= Config.Distance then
+            if dist <= ParryConfig.Distance then
                 ExecuteParry()
             end
         end
     end)
 end
 
--- // UI Components (Adding to existing Tab)
+-- // [ UI Elements Order: Slider then Toggle ]
+Tabs.Automatic:AddSlider("ParryRange", {
+    Title = "Parry Range",
+    Default = 8,
+    Min = 2,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        ParryConfig.Distance = Value
+    end
+})
+
 local ParryToggle = Tabs.Automatic:AddToggle("AutoParry", {
     Title = "Auto Parry", 
     Default = false
 })
 
 ParryToggle:OnChanged(function()
-    Config.Enabled = ParryToggle.Value
-    Config.ShowCircle = ParryToggle.Value
+    ParryConfig.Enabled = ParryToggle.Value
+    ParryConfig.ShowCircle = ParryToggle.Value
 end)
 
-local RangeSlider = Tabs.Automatic:AddSlider("Range", {
-    Title = "Parry Range",
-    Description = "",
-    Default = 8,
-    Min = 2,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(Value)
-        Config.Distance = Value
-    end
-})
-
--- // Range Visualizer & Optimized Color Logic
+-- // Range Visualizer (Optimized Colors)
 local RangeAdorn = Instance.new("CylinderHandleAdornment")
 RangeAdorn.Height = 0.1
 RangeAdorn.Transparency = 0.5
-RangeAdorn.Parent = game.CoreGui
+RangeAdorn.Parent = CoreGui
 
 RunService.RenderStepped:Connect(function()
-    if Config.ShowCircle and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("PrimaryPart") then
-        local myPos = LocalPlayer.Character.PrimaryPart.Position
-        State.EnemyInRange = false
+    if ParryConfig.ShowCircle and LP.Character and LP.Character:FindFirstChild("PrimaryPart") then
+        local myPos = LP.Character.PrimaryPart.Position
+        ParryState.EnemyInRange = false
         
-        -- ตรวจสอบ Killer ในระยะ
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("PrimaryPart") then
+            if p ~= LP and p.Character and p.Character:FindFirstChild("PrimaryPart") then
                 local dist = (myPos - p.Character.PrimaryPart.Position).Magnitude
-                if dist <= Config.Distance then
-                    State.EnemyInRange = true
+                if dist <= ParryConfig.Distance then
+                    ParryState.EnemyInRange = true
                     break
                 end
             end
         end
 
-        -- [Color Logic] 
-        if State.Cooldown then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- คูลดาวน์: ส้ม
-        elseif State.EnemyInRange then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- Killer ในวง: แดง
+        -- [Color Logic]
+        if ParryState.Cooldown then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0) -- ส้ม (Cooldown)
+        elseif ParryState.EnemyInRange then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)   -- แดง (Killer in range)
         else
-            RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- พร้อมใช้: เขียว
+            RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)   -- เขียว (Ready)
         end
 
         RangeAdorn.Visible = true
-        RangeAdorn.Radius = Config.Distance
-        RangeAdorn.InnerRadius = Config.Distance - 0.2
+        RangeAdorn.Radius = ParryConfig.Distance
+        RangeAdorn.InnerRadius = ParryConfig.Distance - 0.2
         RangeAdorn.Adornee = workspace.Terrain
         RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
     else
@@ -452,15 +451,17 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // Initialization
-local function Setup(p)
-    if p == LocalPlayer then return end
-    p.CharacterAdded:Connect(AttachSensor)
-    if p.Character then AttachSensor(p.Character) end
+-- // Initial Setup
+for _, p in pairs(Players:GetPlayers()) do
+    if p ~= LP then
+        p.CharacterAdded:Connect(AttachParrySensor)
+        if p.Character then AttachParrySensor(p.Character) end
+    end
 end
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(AttachParrySensor)
+end)
 
-Players.PlayerAdded:Connect(Setup)
-for _, p in pairs(Players:GetPlayers()) do Setup(p) end
 
 
 
