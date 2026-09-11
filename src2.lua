@@ -1,4 +1,4 @@
--- 1
+-- 2
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -43,7 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA 1]",
+SubTitle = "Violence District [BETA 2]",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -307,7 +307,7 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY + STATUS UI (FULL)
+-- 🔥 HYPER-X AUTO PARRY + OPTIMIZED STATUS UI
 --=========================================
 
 local Config = {
@@ -344,13 +344,13 @@ StatusGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 180, 0, 80)
-MainFrame.Position = UDim2.new(0.5, -90, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 185, 0, 80)
+MainFrame.Position = UDim2.new(0.5, -92, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
-MainFrame.Visible = false
 MainFrame.Active = true
 MainFrame.Draggable = true
+MainFrame.Visible = false
 MainFrame.Parent = StatusGui
 
 local UIStroke = Instance.new("UIStroke")
@@ -384,7 +384,7 @@ StatusLabel.Font = Enum.Font.GothamBold
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = MainFrame
 
--- // Role Checker Logic
+-- // Logic Helpers
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
     local teamLower = team:lower()
@@ -393,7 +393,6 @@ local function GetRole(player)
     return "Spectator"
 end
 
--- // Input & Parry Logic
 local function PerformInput()
     pcall(function()
         local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
@@ -407,26 +406,20 @@ local function PerformInput()
     end)
 end
 
-local function ExecuteParry()
-    if State.Cooldown or GetRole(LP) ~= "Survivors" then return end
-    State.Cooldown = true
-    task.spawn(function()
-        for i = 1, 10 do State.ParryRemote:FireServer() end
-        PerformInput()
-    end)
-end
-
--- // Cooldown Listener
+-- // Cooldown Logic (Delta Time)
 State.ResultRemote.OnClientEvent:Connect(function(_, cd)
-    local cdTime = tonumber(cd) or 0.8
-    State.CurrentCD = cdTime
+    State.CurrentCD = tonumber(cd) or 0.8
     State.Cooldown = true
     task.spawn(function()
+        local lastTick = tick()
         while State.CurrentCD > 0 do
-            task.wait(0.1)
-            State.CurrentCD = math.max(0, State.CurrentCD - 0.1)
+            local delta = tick() - lastTick
+            lastTick = tick()
+            State.CurrentCD = math.max(0, State.CurrentCD - delta)
+            task.wait()
         end
         State.Cooldown = false
+        State.CurrentCD = 0
     end)
 end)
 
@@ -437,98 +430,82 @@ local function AttachSensor(char)
     local animator = hum:WaitForChild("Animator", 10)
     
     State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
-        if not Config.Enabled or State.Cooldown then return end
+        if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
         if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
             local myChar = LP.Character
             if myChar and myChar:GetAttribute("State") ~= "Downed" then
                 if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
-                    ExecuteParry()
+                    State.Cooldown = true
+                    for i = 1, 10 do State.ParryRemote:FireServer() end
+                    PerformInput()
                 end
             end
         end
     end)
 end
 
--- // Integrated RenderStepped (Visualizer + Status UI)
+-- // Optimized Render Loop
 local RangeAdorn = Instance.new("CylinderHandleAdornment")
 RangeAdorn.Height = 0.1
 RangeAdorn.Transparency = 0.5
 RangeAdorn.Parent = workspace.Terrain
 
 RunService.RenderStepped:Connect(function()
-    local myChar = LP.Character
-    if not myChar or not myChar.PrimaryPart then return end
-    
-    local myPos = myChar.PrimaryPart.Position
-    local myRole = GetRole(LP)
-    local closestDist = 999
-    
-    -- หา Killer ที่ใกล้ที่สุดครั้งเดียว
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character and p.Character.PrimaryPart and GetRole(p) == "Killer" then
-            local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
-            if d < closestDist then closestDist = d end
-        end
-    end
-    
-    State.KillerInRange = (closestDist <= Config.Distance)
-
-    -- Update UI Status
     MainFrame.Visible = Config.ShowStatusUI
-    if Config.ShowStatusUI then
-        DistLabel.Text = "Killer Distance: " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
-        if State.CurrentCD > 0 then
-            StatusLabel.Text = string.format("Status: CD (%.1fs)", State.CurrentCD)
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
-        else
-            StatusLabel.Text = "Status: Ready"
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        end
+    local myRole = GetRole(LP)
+    local myChar = LP.Character
+    
+    if not Config.ShowStatusUI and not Config.ShowCircle then 
+        RangeAdorn.Visible = false
+        return 
     end
 
-    -- Update Range Circle
-    if Config.ShowCircle then
-        if myRole == "Killer" or myRole == "Spectator" then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255)
-        elseif State.Cooldown then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0)
-        elseif State.KillerInRange then
-            RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)
-        else
-            RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)
+    if myRole ~= "Survivors" then
+        if Config.ShowStatusUI then
+            DistLabel.Text = "Killer Distance: N/A"
+            StatusLabel.Text = "Status: N/A"
+            StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
-        RangeAdorn.Visible = true
-        RangeAdorn.Radius = Config.Distance
-        RangeAdorn.InnerRadius = Config.Distance - 0.2
-        RangeAdorn.Adornee = workspace.Terrain
-        RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
-    else
         RangeAdorn.Visible = false
+        return
+    end
+
+    if myChar and myChar.PrimaryPart then
+        local myPos = myChar.PrimaryPart.Position
+        local closestDist = 999
+        
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character and p.Character.PrimaryPart and GetRole(p) == "Killer" then
+                local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
+                if d < closestDist then closestDist = d end
+            end
+        end
+
+        if Config.ShowStatusUI then
+            DistLabel.Text = "Killer Distance: " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
+            if State.CurrentCD > 0 then
+                StatusLabel.Text = string.format("Status: CD (%.1fs)", State.CurrentCD)
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+            else
+                StatusLabel.Text = "Status: Ready"
+                StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            end
+        end
+
+        if Config.ShowCircle then
+            RangeAdorn.Visible = true
+            RangeAdorn.Color3 = (State.CurrentCD > 0 and Color3.fromRGB(255, 165, 0)) or (closestDist <= Config.Distance and Color3.fromRGB(255, 0, 0)) or Color3.fromRGB(0, 255, 0)
+            RangeAdorn.Radius = Config.Distance
+            RangeAdorn.InnerRadius = Config.Distance - 0.2
+            RangeAdorn.Adornee = workspace.Terrain
+            RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
+        else
+            RangeAdorn.Visible = false
+        end
     end
 end)
 
--- // UI Toggles
-Tabs.Automatic:AddSlider("ParryRange", {
-    Title = "Parry Range", Default = 8, Min = 2, Max = 10, Rounding = 1,
-    Callback = function(Value) Config.Distance = Value end
-})
-
-Tabs.Automatic:AddToggle("AutoParry", {
-    Title = "Auto Parry", Default = false,
-    Callback = function(Value) Config.Enabled = Value end
-})
-
-Tabs.Automatic:AddToggle("ShowRange", {
-    Title = "Show Range Circle", Default = false,
-    Callback = function(Value) Config.ShowCircle = Value end
-})
-
-Tabs.Automatic:AddToggle("ShowStatusUI", {
-    Title = "Show Status UI", Default = false,
-    Callback = function(Value) Config.ShowStatusUI = Value end
-})
-
--- // Initial
+-- // Initial Setup
 for _, p in pairs(Players:GetPlayers()) do
     if p ~= LP then
         p.CharacterAdded:Connect(AttachSensor)
@@ -536,6 +513,7 @@ for _, p in pairs(Players:GetPlayers()) do
     end
 end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
