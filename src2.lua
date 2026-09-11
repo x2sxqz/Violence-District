@@ -1,4 +1,4 @@
--- 4
+-- 5
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -307,8 +307,16 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY + STATUS UI (FIXED RANGE)
+-- 🔥 HYPER-X AUTO PARRY + STATUS UI (PRECISE VERSION)
 --=========================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VIM = game:GetService("VirtualInputManager")
+local LP = Players.LocalPlayer
+local PlayerGui = LP:WaitForChild("PlayerGui")
+
 local Config = {
     Enabled = false,
     Distance = 8,
@@ -319,9 +327,20 @@ local Config = {
 local State = {
     Cooldown = false,
     CurrentCD = 0,
+    KillerInRange = false,
     Connections = {},
     ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
     ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+}
+
+local ATTACK_ANIMS = {
+    ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
+    ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
+    ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
+    ["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
+    ["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
+    ["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
+    ["121216847022485"] = true
 }
 
 -- // [ GUI CREATION ]
@@ -372,21 +391,7 @@ StatusLabel.Font = Enum.Font.GothamBold
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = MainFrame
 
--- // [ RANGE CIRCLE PART ]
-local CirclePart = Instance.new("Part")
-CirclePart.Shape = Enum.PartType.Cylinder
-CirclePart.BrightLight = true
-CirclePart.CastShadow = false
-CirclePart.CanCollide = false
-CirclePart.CanTouch = false
-CirclePart.CanQuery = false
-CirclePart.Anchored = true
-CirclePart.Material = Enum.Material.Neon
-CirclePart.Transparency = 0.8
-CirclePart.Size = Vector3.new(0.1, 16, 16)
-CirclePart.Parent = workspace
-
--- // Cooldown & Role Logic
+-- // Logic Helpers
 local function GetRole(player)
     local team = player.Team and player.Team.Name or "None"
     local teamLower = team:lower()
@@ -395,36 +400,79 @@ local function GetRole(player)
     return "Spectator"
 end
 
+local function PerformInput()
+    pcall(function()
+        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+        if mobBtn and mobBtn.Visible then
+            firesignal(mobBtn.MouseButton1Down)
+        else
+            VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0)
+            task.wait(0.01)
+            VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+        end
+    end)
+end
+
+-- // Precise Cooldown Logic (No Delay)
 State.ResultRemote.OnClientEvent:Connect(function(_, cd)
-    State.CurrentCD = tonumber(cd) or 0.8
+    local cdTime = tonumber(cd) or 0.8
+    State.CurrentCD = cdTime
     State.Cooldown = true
     task.spawn(function()
         local lastTick = tick()
         while State.CurrentCD > 0 do
-            local delta = tick() - lastTick
-            lastTick = tick()
+            local currentTick = tick()
+            local delta = currentTick - lastTick
+            lastTick = currentTick
             State.CurrentCD = math.max(0, State.CurrentCD - delta)
-            task.wait()
+            task.wait() 
         end
         State.Cooldown = false
         State.CurrentCD = 0
     end)
 end)
 
--- // Main Update Loop
+-- // Sensors
+local function AttachSensor(char)
+    if not char or State.Connections[char] then return end
+    local hum = char:WaitForChild("Humanoid", 10)
+    local animator = hum:WaitForChild("Animator", 10)
+    
+    State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
+        if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
+        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
+            local myChar = LP.Character
+            if myChar and myChar:GetAttribute("State") ~= "Downed" then
+                if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
+                    State.Cooldown = true
+                    for i = 1, 10 do State.ParryRemote:FireServer() end
+                    PerformInput()
+                end
+            end
+        end
+    end)
+end
+
+-- // Optimized Render Loop (UI + Circle)
+local RangeAdorn = Instance.new("CylinderHandleAdornment")
+RangeAdorn.Height = 0.1
+RangeAdorn.Transparency = 0.5
+RangeAdorn.Parent = workspace.Terrain
+
 RunService.RenderStepped:Connect(function()
     local myChar = LP.Character
     local myRole = GetRole(LP)
     
     MainFrame.Visible = Config.ShowStatusUI
 
+    -- [ Role Security ]
     if myRole ~= "Survivors" then
         if Config.ShowStatusUI then
             DistLabel.Text = "Killer Distance: N/A"
             StatusLabel.Text = "Status: N/A"
             StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
-        CirclePart.Transparency = 1
+        RangeAdorn.Visible = false
         return
     end
 
@@ -439,7 +487,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Update UI
+        -- Update UI Status
         if Config.ShowStatusUI then
             DistLabel.Text = "Killer Distance: " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
             if State.CurrentCD > 0 then
@@ -451,24 +499,59 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Update Range Circle (Fixed Part Version)
+        -- Update Circle
         if Config.ShowCircle then
-            CirclePart.Transparency = 0.8
-            CirclePart.Size = Vector3.new(0.1, Config.Distance * 2, Config.Distance * 2)
-            CirclePart.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(0, 0, math.rad(90))
-            
-            if State.CurrentCD > 0 then
-                CirclePart.Color = Color3.fromRGB(255, 165, 0)
-            elseif closestDist <= Config.Distance then
-                CirclePart.Color = Color3.fromRGB(255, 0, 0)
-            else
-                CirclePart.Color = Color3.fromRGB(0, 255, 0)
-            end
+            RangeAdorn.Visible = true
+            RangeAdorn.Color3 = (State.CurrentCD > 0 and Color3.fromRGB(255, 165, 0)) or (closestDist <= Config.Distance and Color3.fromRGB(255, 0, 0)) or Color3.fromRGB(0, 255, 0)
+            RangeAdorn.Radius = Config.Distance
+            RangeAdorn.InnerRadius = Config.Distance - 0.2
+            RangeAdorn.Adornee = workspace.Terrain
+            RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
         else
-            CirclePart.Transparency = 1
+            RangeAdorn.Visible = false
         end
     end
 end)
+
+-- // UI Toggles
+Tabs.Automatic:AddToggle("AutoParry", { 
+Title = "Auto Parry", 
+Default = false, 
+Callback = function(V) 
+Config.Enabled = V end })
+
+Tabs.Automatic:AddSlider("ParryRange", { 
+Title = "Parry Range", 
+Default = 8, 
+Min = 2, 
+Max = 10, 
+Rounding = 1, 
+Callback = function(V) 
+Config.Distance = V end })
+
+Tabs.Automatic:AddToggle("ShowRange", { 
+Title = "Show Range Circle", 
+Default = false, Callback = function(V) 
+Config.ShowCircle = V end })
+
+Tabs.Automatic:AddToggle("ShowStatusUI", { 
+Title = "Show Status UI", 
+Default = false, 
+Callback = function(V) 
+Config.ShowStatusUI = V end })
+
+-- // Init
+for _, p in pairs(Players:GetPlayers()) do
+    if p ~= LP then
+        p.CharacterAdded:Connect(AttachSensor)
+        if p.Character then AttachSensor(p.Character) end
+    end
+end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
+
+
+
 
 
 
