@@ -1,1 +1,1343 @@
+-- 1
+local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/InterfaceManager.lua"))()
 
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
+local CoreGui = game:GetService("CoreGui")
+local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
+local VU = game:GetService("VirtualUser")
+local Lighting = game:GetService("Lighting")
+local lighting = Lighting
+local VirtualUser = game:GetService("VirtualUser")
+local LocalPlayer = Players.LocalPlayer
+local Stats = game:GetService("Stats")
+local TeleportService = game:GetService("TeleportService")
+local localPlayer = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")	
+local DefaultZoom = LocalPlayer.CameraMaxZoomDistance
+local LogService = game:GetService("LogService")
+local LocalPlayer = Players.LocalPlayer
+local LP = LocalPlayer
+local Camera = workspace.CurrentCamera
+local lp = LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+
+local Window = Fluent:CreateWindow({
+Title = "REAPER HUB",
+SubTitle = "Violence District [BETA 1]",
+TabWidth = 160,
+Size = UDim2.fromOffset(520, 360),
+Theme = "ExtremeReaper",
+MinimizeKey = Enum.KeyCode.RightControl
+})
+
+local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/Icon.lua"))()
+
+--=========================
+-- 🔥Tab
+--=========================
+local Tabs = {
+Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
+Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+Automatic = Window:AddTab({ Title = "Automatic", Icon = "compass" }),
+Player = Window:AddTab({ Title = "Player", Icon = "user" }),
+ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
+Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" }),
+Teleport = Window:AddTab({ Title = "Teleport", Icon = "menu" }),
+Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+
+-- Key Time
+local FIREBASE_BASE_URL = "https://keysystem-reaper-default-rtdb.asia-southeast1.firebasedatabase.app/keys"
+local KEY_FILE = "reaper_saved_key.txt"
+
+local ExpiryLabel = Tabs.Status:AddParagraph({
+    Title = "Key Remaining Time",
+    Content = "Fetching data..."
+})
+
+local function startKeyTimer()
+    task.spawn(function()
+        if not isfile(KEY_FILE) then 
+            ExpiryLabel:SetDesc("Status: No key file found")
+            return 
+        end
+        
+        local rawKey = readfile(KEY_FILE)
+        local savedKey = rawKey:gsub("%s+", "") 
+        
+        local success, response = pcall(function()
+            return game:HttpGet(string.format("%s/%s.json", FIREBASE_BASE_URL, savedKey))
+        end)
+
+        if success and response and response ~= "null" then
+            local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(response) end)
+            
+            if decodeSuccess and data and data.expiresAt then
+                if data.hwid == "" or data.hwid == nil or data.hwid == gethwid() then
+                    local targetTime = tonumber(data.expiresAt) / 1000 
+                    
+                    while true do
+                        local timeLeft = targetTime - os.time()
+                        
+                        if timeLeft > 0 then
+                            local d = math.floor(timeLeft / 86400)
+                            local h = math.floor((timeLeft % 86400) / 3600)
+                            local m = math.floor((timeLeft % 3600) / 60)
+                            local s = math.floor(timeLeft % 60)
+                            
+                            local displayStr = ""
+                            
+                            -- [คงไว้ตามต้นฉบับของคุณเป๊ะๆ]
+                            if d > 0 then
+                                displayStr = string.format("%d Days : %d Hours : %d Minutes : %d s", d, h, m, s)
+                            elseif h > 0 then
+                                displayStr = string.format("%d Hours : %d Minutes : %d s", h, m, s)
+                            elseif m > 0 then
+                                displayStr = string.format("%d Minutes : %d s", m, s)
+                            else
+                                displayStr = string.format("%d s", s)
+                            end
+                            
+                            ExpiryLabel:SetDesc(displayStr)
+                        else
+                            -- [ส่วนที่ปรับปรุง: เมื่อหมดเวลาให้ Rejoin รัวๆ]
+                            ExpiryLabel:SetDesc("Status: Key Expired!")
+                            while true do
+                                pcall(function()
+                                    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+                                end)
+                                task.wait(0.5) -- ความเร็วในการพยายาม Rejoin (0.5 วินาที)
+                            end
+                            break
+                        end
+                        task.wait(1)
+                    end
+                    return
+                end
+            end
+        end
+        ExpiryLabel:SetDesc("Status: No Active Session")
+    end)
+end
+
+startKeyTimer()
+
+
+Tabs.Status:AddParagraph({
+    Title = "Player Profile",
+    Content = "Display Name: " .. lp.DisplayName ..
+              "\nUsername: @" .. lp.Name
+})
+
+local PlayerLabel = Tabs.Status:AddParagraph({
+    Title = "Players",
+    Content = "Loading..."
+})
+
+local PingLabel = Tabs.Status:AddParagraph({
+    Title = "Ping",
+    Content = "Loading..."
+})
+
+local FPSLabel = Tabs.Status:AddParagraph({
+    Title = "FPS",
+    Content = "Loading..."
+})
+
+local fps = 60
+local frameCount = 0
+local timeElapsed = 0
+
+RunService.RenderStepped:Connect(function(dt)
+    if dt <= 0 or dt > 0.1 then
+        return
+    end
+
+    frameCount += 1
+    timeElapsed += dt
+
+    if timeElapsed >= 0.5 then
+        local rawFps = frameCount / timeElapsed
+        rawFps = math.clamp(rawFps, 15, 240)
+
+        fps = math.floor(rawFps + 0.5)
+
+        frameCount = 0
+        timeElapsed = 0
+    end
+end)
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            PlayerLabel:SetDesc(#Players:GetPlayers())
+
+            local ping = 0
+
+            pcall(function()
+                ping = math.floor(
+                    Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+                )
+            end)
+
+            PingLabel:SetDesc(ping .. " ms")
+            FPSLabel:SetDesc(fps)
+        end)
+
+        task.wait(0.5)
+    end
+end)
+
+
+--Main
+--Aimsilent
+--skillcheck
+if _G.HyperX_Loop then _G.HyperX_Loop:Disconnect() end
+
+local Config = {
+    Enabled = false,
+    Mode = "Legit"
+}
+local State = { busy = false }
+
+
+-- [ UI Elements ]
+local Dropdown = Tabs.Main:AddDropdown("ModeDropdown", {
+    Title = "Select Mode",
+    Values = {"Legit", "Instant"},
+    Multi = false,
+    Default = "Legit",
+})
+
+Dropdown:OnChanged(function(Value)
+    Config.Mode = Value
+end)
+Config.Mode = Dropdown.Value -- กำหนดค่าทันที
+
+local Toggle = Tabs.Main:AddToggle("AutoSkillToggle", { 
+    Title = "Auto Skill Check", 
+    Default = false 
+})
+
+Toggle:OnChanged(function(Value)
+    Config.Enabled = Value
+end)
+Config.Enabled = Toggle.Value -- กำหนดค่าทันที
+
+-- [ Logic เหมือนตัวที่มึงใช้แล้วเวิร์ค ]
+local function Trigger()
+    if UserInputService.TouchEnabled then
+        local ActionPath = "Survivor-mob.Controls.action.check"
+        local b = PlayerGui
+        for segment in string.gmatch(ActionPath, "[^%.]+") do
+            b = b and b:FindFirstChild(segment)
+        end
+        if b and b:IsA("GuiObject") then
+            local p, s = b.AbsolutePosition, b.AbsoluteSize
+            local i = game:GetService("GuiService"):GetGuiInset()
+            local cx, cy = p.X + (s.X/2) + i.X, p.Y + (s.Y/2) + i.Y
+            VirtualInputManager:SendTouchEvent(8822, 0, cx, cy)
+            task.wait(0.01)
+            VirtualInputManager:SendTouchEvent(8822, 2, cx, cy)
+        end
+    else
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.wait()
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+    end
+end
+
+_G.HyperX_Loop = RunService.RenderStepped:Connect(function()
+    if not Config.Enabled or State.busy then return end
+    
+    local prompt = PlayerGui:FindFirstChild("SkillCheckPromptGui")
+    local check = prompt and prompt:FindFirstChild("Check")
+    if not check or not check.Visible then return end
+    
+    local line = check:FindFirstChild("Line")
+    local goal = check:FindFirstChild("Goal")
+    if not line or not goal then return end
+
+    if Config.Mode == "Instant" then
+        line.Rotation = goal.Rotation + 109
+        State.busy = true
+        task.spawn(function()
+            Trigger()
+            task.wait(0.2)
+            State.busy = false
+        end)
+    else
+        local lr = line.Rotation % 360
+        local gr = goal.Rotation % 360
+        local startRange = (gr + 102) % 360
+        local endRange   = (gr + 116) % 360
+        
+        if (startRange > endRange and (lr >= startRange or lr <= endRange)) or (lr >= startRange and lr <= endRange) then
+            State.busy = true
+            task.spawn(function()
+                Trigger()
+                task.wait(0.1)
+                State.busy = false
+            end)
+        end
+    end
+end)
+
+
+-- Automatic
+--=========================================
+-- 🔥 HYPER-X AUTO PARRY + STATUS UI (FULL)
+--=========================================
+
+local Config = {
+    Enabled = false,
+    Distance = 8,
+    ShowCircle = false,
+    ShowStatusUI = false
+}
+
+local State = {
+    Cooldown = false,
+    CurrentCD = 0,
+    KillerInRange = false,
+    Connections = {},
+    ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
+    ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+}
+
+local ATTACK_ANIMS = {
+    ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
+    ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
+    ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
+    ["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
+    ["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
+    ["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
+    ["121216847022485"] = true
+}
+
+-- // [ GUI CREATION ]
+local StatusGui = Instance.new("ScreenGui")
+StatusGui.Name = "HyperX_StatusUI"
+StatusGui.ResetOnSpawn = false
+StatusGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 180, 0, 80)
+MainFrame.Position = UDim2.new(0.5, -90, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = StatusGui
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 0, 0)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 6)
+UICorner.Parent = MainFrame
+
+local DistLabel = Instance.new("TextLabel")
+DistLabel.Size = UDim2.new(1, -20, 0, 35)
+DistLabel.Position = UDim2.new(0, 10, 0, 5)
+DistLabel.BackgroundTransparency = 1
+DistLabel.Text = "Killer Distance: N/A"
+DistLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+DistLabel.TextSize = 14
+DistLabel.Font = Enum.Font.GothamBold
+DistLabel.TextXAlignment = Enum.TextXAlignment.Left
+DistLabel.Parent = MainFrame
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 35)
+StatusLabel.Position = UDim2.new(0, 10, 0, 35)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Ready"
+StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+StatusLabel.TextSize = 14
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+-- // Role Checker Logic
+local function GetRole(player)
+    local team = player.Team and player.Team.Name or "None"
+    local teamLower = team:lower()
+    if string.find(teamLower, "killer") or string.find(teamLower, "murder") or string.find(teamLower, "beast") then return "Killer"
+    elseif string.find(teamLower, "survivor") or string.find(teamLower, "innocent") or string.find(teamLower, "human") then return "Survivors" end
+    return "Spectator"
+end
+
+-- // Input & Parry Logic
+local function PerformInput()
+    pcall(function()
+        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+        if mobBtn and mobBtn.Visible then
+            firesignal(mobBtn.MouseButton1Down)
+        else
+            VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0)
+            task.wait(0.01)
+            VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+        end
+    end)
+end
+
+local function ExecuteParry()
+    if State.Cooldown or GetRole(LP) ~= "Survivors" then return end
+    State.Cooldown = true
+    task.spawn(function()
+        for i = 1, 10 do State.ParryRemote:FireServer() end
+        PerformInput()
+    end)
+end
+
+-- // Cooldown Listener
+State.ResultRemote.OnClientEvent:Connect(function(_, cd)
+    local cdTime = tonumber(cd) or 0.8
+    State.CurrentCD = cdTime
+    State.Cooldown = true
+    task.spawn(function()
+        while State.CurrentCD > 0 do
+            task.wait(0.1)
+            State.CurrentCD = math.max(0, State.CurrentCD - 0.1)
+        end
+        State.Cooldown = false
+    end)
+end)
+
+-- // Sensors
+local function AttachSensor(char)
+    if not char or State.Connections[char] then return end
+    local hum = char:WaitForChild("Humanoid", 10)
+    local animator = hum:WaitForChild("Animator", 10)
+    
+    State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
+        if not Config.Enabled or State.Cooldown then return end
+        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
+            local myChar = LP.Character
+            if myChar and myChar:GetAttribute("State") ~= "Downed" then
+                if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
+                    ExecuteParry()
+                end
+            end
+        end
+    end)
+end
+
+-- // Integrated RenderStepped (Visualizer + Status UI)
+local RangeAdorn = Instance.new("CylinderHandleAdornment")
+RangeAdorn.Height = 0.1
+RangeAdorn.Transparency = 0.5
+RangeAdorn.Parent = workspace.Terrain
+
+RunService.RenderStepped:Connect(function()
+    local myChar = LP.Character
+    if not myChar or not myChar.PrimaryPart then return end
+    
+    local myPos = myChar.PrimaryPart.Position
+    local myRole = GetRole(LP)
+    local closestDist = 999
+    
+    -- หา Killer ที่ใกล้ที่สุดครั้งเดียว
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character and p.Character.PrimaryPart and GetRole(p) == "Killer" then
+            local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
+            if d < closestDist then closestDist = d end
+        end
+    end
+    
+    State.KillerInRange = (closestDist <= Config.Distance)
+
+    -- Update UI Status
+    MainFrame.Visible = Config.ShowStatusUI
+    if Config.ShowStatusUI then
+        DistLabel.Text = "Killer Distance: " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
+        if State.CurrentCD > 0 then
+            StatusLabel.Text = string.format("Status: CD (%.1fs)", State.CurrentCD)
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+        else
+            StatusLabel.Text = "Status: Ready"
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        end
+    end
+
+    -- Update Range Circle
+    if Config.ShowCircle then
+        if myRole == "Killer" or myRole == "Spectator" then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 255, 255)
+        elseif State.Cooldown then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 165, 0)
+        elseif State.KillerInRange then
+            RangeAdorn.Color3 = Color3.fromRGB(255, 0, 0)
+        else
+            RangeAdorn.Color3 = Color3.fromRGB(0, 255, 0)
+        end
+        RangeAdorn.Visible = true
+        RangeAdorn.Radius = Config.Distance
+        RangeAdorn.InnerRadius = Config.Distance - 0.2
+        RangeAdorn.Adornee = workspace.Terrain
+        RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
+    else
+        RangeAdorn.Visible = false
+    end
+end)
+
+-- // UI Toggles
+Tabs.Automatic:AddSlider("ParryRange", {
+    Title = "Parry Range", Default = 8, Min = 2, Max = 10, Rounding = 1,
+    Callback = function(Value) Config.Distance = Value end
+})
+
+Tabs.Automatic:AddToggle("AutoParry", {
+    Title = "Auto Parry", Default = false,
+    Callback = function(Value) Config.Enabled = Value end
+})
+
+Tabs.Automatic:AddToggle("ShowRange", {
+    Title = "Show Range Circle", Default = false,
+    Callback = function(Value) Config.ShowCircle = Value end
+})
+
+Tabs.Automatic:AddToggle("ShowStatusUI", {
+    Title = "Show Status UI", Default = false,
+    Callback = function(Value) Config.ShowStatusUI = Value end
+})
+
+-- // Initial
+for _, p in pairs(Players:GetPlayers()) do
+    if p ~= LP then
+        p.CharacterAdded:Connect(AttachSensor)
+        if p.Character then AttachSensor(p.Character) end
+    end
+end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
+
+
+
+
+
+
+
+
+        
+--player
+local State = {
+    NC = false 
+    
+}
+
+
+local WSState = false
+local WSValue = 16  
+local DefaultWS = 16
+local initialized = false
+
+local function HookChar(char)
+    local hum = char:WaitForChild("Humanoid")
+    
+    -- บันทึกค่าความเร็วปกติของเกมไว้แค่ครั้งเดียวตอนรันสคริปต์
+    if not initialized then
+        DefaultWS = hum.WalkSpeed
+        initialized = true
+    end
+end
+
+if LP.Character then HookChar(LP.Character) end
+LP.CharacterAdded:Connect(HookChar)
+
+RunService.RenderStepped:Connect(function()
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    -- ทำงานเฉพาะตอนเปิด Toggle เท่านั้น
+    if WSState then
+        hum.WalkSpeed = WSValue
+    end
+end)
+
+-- walkspeed limit
+Tabs.Player:AddInput("WSV", {
+    Title = "Speed Value (Limit 40)",
+    Default = "16",
+    Callback = function(v)
+        WSValue = math.clamp(tonumber(v) or 16, 1, 40)
+    end
+})
+
+-- ปุ่มเปิด/ปิด
+Tabs.Player:AddToggle("WS", {
+    Title = "WalkSpeed",
+    Default = false,
+    Callback = function(v) 
+        WSState = v 
+        
+        -- ถ้ากดปิด ให้คืนค่าความเร็วกลับเป็นค่าเริ่มต้นทันที
+        if not v then 
+            local char = LP.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then 
+                hum.WalkSpeed = DefaultWS 
+            end 
+        end
+    end
+})
+
+
+local NoclipConnection
+local function SetNoclip(state)
+    if state then
+        -- เริ่มทำงานเมื่อเปิด Toggle
+        NoclipConnection = RunService.Stepped:Connect(function()
+            if LP.Character then
+                for _, v in pairs(LP.Character:GetDescendants()) do
+                    if v:IsA("BasePart") and v.CanCollide then
+                        v.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        -- หยุดทำงานและคืนค่าฟิสิกส์เมื่อปิด Toggle
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
+        -- ตัวละครจะกลับมามี Colllide ปกติเมื่อมีการขยับหรือ Respawn
+    end
+end
+
+Tabs.Player:AddToggle("NC", {
+    Title = "Noclip",
+    Default = false,
+    Callback = function(Value)
+        SetNoclip(Value)
+    end
+})
+
+
+--esp
+local ESP_Config = {
+    EnabledRoles = {}, 
+    ShowBox = false,
+    ShowHighlight = false,
+    ShowTracer = false,
+    Roles = {
+        ["Survivors"] = Color3.fromRGB(0, 255, 0),
+        ["Killer"] = Color3.fromRGB(255, 0, 0),
+        ["Spectator"] = Color3.fromRGB(255, 255, 255)
+    }
+}
+
+
+local RoleDropdown = Tabs.ESP:AddDropdown("ESPRoles", {
+    Title = "Select Type",
+    Values = {"Survivors", "Killer", "Spectator"},
+    Multi = true,
+    Default = {},
+})
+
+RoleDropdown:OnChanged(function(Value)
+    ESP_Config.EnabledRoles = Value
+end)
+
+Tabs.ESP:AddToggle("HighlightToggle", {Title = "ESP Highlight", Default = false}):OnChanged(function(v)
+    ESP_Config.ShowHighlight = v
+end)
+
+Tabs.ESP:AddToggle("BoxToggle", {Title = "ESP Box 3D", Default = false}):OnChanged(function(v)
+    ESP_Config.ShowBox = v
+end)
+
+Tabs.ESP:AddToggle("TracerToggle", {Title = "ESP Line", Default = false}):OnChanged(function(v)
+    ESP_Config.ShowTracer = v
+end)
+
+-- =========================
+-- 🔥 Optimized Player ESP (Highlight, Box, Line)
+-- =========================
+
+local function GetRole(player)
+    local team = player.Team and player.Team.Name or "None"
+    local teamLower = team:lower()
+    if string.find(teamLower, "killer") or string.find(teamLower, "murder") or string.find(teamLower, "beast") then return "Killer"
+    elseif string.find(teamLower, "survivor") or string.find(teamLower, "innocent") or string.find(teamLower, "human") then return "Survivors" end
+    return "Spectator"
+end
+
+local function CreateDrawingESP(player)
+    if player == LocalPlayer then return end
+
+    local ESP_Objects = {
+        Lines = {},
+        Tracer = nil
+    }
+
+    local function RemoveDrawing()
+        for _, l in pairs(ESP_Objects.Lines) do pcall(function() l:Remove() end) end
+        if ESP_Objects.Tracer then pcall(function() ESP_Objects.Tracer:Remove() end) end
+        ESP_Objects.Lines = {}
+        ESP_Objects.Tracer = nil
+    end
+
+    local function RefreshDrawing()
+        if #ESP_Objects.Lines < 12 then
+            for i = 1, 12 do
+                local l = Drawing.new("Line")
+                l.Thickness = 1.5
+                l.Transparency = 1
+                l.Visible = false
+                table.insert(ESP_Objects.Lines, l)
+            end
+        end
+        if not ESP_Objects.Tracer then
+            local t = Drawing.new("Line")
+            t.Thickness = 1.5
+            t.Transparency = 1
+            t.Visible = false
+            ESP_Objects.Tracer = t
+        end
+    end
+
+    local function ApplyESP(character)
+        task.spawn(function()
+            local hrp = character:WaitForChild("HumanoidRootPart", 10)
+            local hum = character:WaitForChild("Humanoid", 10)
+            if not hrp or not hum then return end
+
+            RefreshDrawing()
+            
+            -- ฟังก์ชันจัดการ Highlight แบบเสถียร
+            local function GetHighlight()
+                local hl = character:FindFirstChild("R_Highlight")
+                if not hl then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "R_Highlight"
+                    hl.Parent = character
+                end
+                return hl
+            end
+
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if not player or not player.Parent or not character or not character.Parent or not hrp.Parent then
+                    RemoveDrawing()
+                    local oldHl = character:FindFirstChild("R_Highlight")
+                    if oldHl then oldHl:Destroy() end
+                    connection:Disconnect()
+                    return
+                end
+
+                local role = GetRole(player)
+                local isRoleEnabled = ESP_Config.EnabledRoles[role]
+                local roleColor = ESP_Config.Roles[role] or Color3.fromRGB(255, 255, 255)
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+                -- 1. 🔥 ESP Highlight (ตัด onScreen ออกเพื่อให้ทะลุกำแพงได้เสถียร)
+                local highlight = GetHighlight()
+                if hum.Health > 0 and isRoleEnabled and ESP_Config.ShowHighlight then
+                    highlight.Enabled = true
+                    highlight.FillColor = roleColor
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.6
+                    highlight.OutlineTransparency = 0
+                else
+                    highlight.Enabled = false
+                end
+
+                -- 2. 🔥 ESP Box 3D (ต้องใช้ onScreen กันเส้นพุ่งมั่ว)
+                if onScreen and hum.Health > 0 and isRoleEnabled and ESP_Config.ShowBox then
+                    RefreshDrawing()
+                    local size = Vector3.new(2, 3, 2)
+                    local cf = hrp.CFrame
+                    local vertices = {
+                        Camera:WorldToViewportPoint((cf * CFrame.new(-size.X, size.Y, -size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(size.X, size.Y, -size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(size.X, size.Y, size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(-size.X, size.Y, size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(-size.X, -size.Y, -size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(size.X, -size.Y, -size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(size.X, -size.Y, size.Z)).Position),
+                        Camera:WorldToViewportPoint((cf * CFrame.new(-size.X, -size.Y, size.Z)).Position)
+                    }
+                    local conns = {{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}}
+                    for i, conn in ipairs(conns) do
+                        local l = ESP_Objects.Lines[i]
+                        if l then
+                            l.Visible = true
+                            l.From = Vector2.new(vertices[conn[1]].X, vertices[conn[1]].Y)
+                            l.To = Vector2.new(vertices[conn[2]].X, vertices[conn[2]].Y)
+                            l.Color = roleColor
+                        end
+                    end
+                else
+                    for _, l in pairs(ESP_Objects.Lines) do l.Visible = false end
+                end
+
+                -- 3. 🔥 ESP Tracer (Line)
+                if onScreen and hum.Health > 0 and isRoleEnabled and ESP_Config.ShowTracer then
+                    RefreshDrawing()
+                    if ESP_Objects.Tracer then
+                        ESP_Objects.Tracer.Visible = true
+                        ESP_Objects.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        ESP_Objects.Tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                        ESP_Objects.Tracer.Color = roleColor
+                    end
+                else
+                    if ESP_Objects.Tracer then ESP_Objects.Tracer.Visible = false end
+                end
+            end)
+        end)
+    end
+
+    player.CharacterAdded:Connect(ApplyESP)
+    if player.Character then ApplyESP(player.Character) end
+end
+
+
+-- ลบส่วน player.Removing ออก แล้วเปลี่ยนมาใช้ PlayerRemoving ของ Players แทน
+Players.PlayerRemoving:Connect(function(player)
+    -- ระบบจะจัดการผ่าน connection:Disconnect() ในลูป RenderStepped อยู่แล้ว
+end)
+
+task.spawn(function()
+    for _, p in ipairs(Players:GetPlayers()) do CreateDrawingESP(p) end
+    Players.PlayerAdded:Connect(CreateDrawingESP)
+end)
+
+
+
+
+
+
+_G.NameESPEnabled = false
+_G.DistanceESPEnabled = false
+local MaxDistance = 4000
+local ESPCache = {}
+
+local function CreateESP(Player)
+    if Player == LP then return end
+
+    local Billboard = Instance.new("BillboardGui")
+    Billboard.Name = "ReaperTag"
+    Billboard.AlwaysOnTop = true
+    Billboard.Size = UDim2.new(0, 200, 0, 50)
+    Billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+    Billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local NameLabel = Instance.new("TextLabel", Billboard)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Size = UDim2.new(1, 0, 1, 0)
+    NameLabel.Text = ""
+    NameLabel.Font = Enum.Font.RobotoMono -- ฟอนต์ตามที่คุณใช้
+    NameLabel.TextSize = 14
+    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NameLabel.TextStrokeTransparency = 0
+    NameLabel.RichText = true
+
+    ESPCache[Player] = {
+        Billboard = Billboard,
+        NameLabel = NameLabel
+    }
+end
+
+local function RemoveESP(Player)
+    if ESPCache[Player] then
+        if ESPCache[Player].Billboard then ESPCache[Player].Billboard:Destroy() end
+        ESPCache[Player] = nil
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    for Player, ESP in pairs(ESPCache) do
+        local Character = Player.Character
+        local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+        local Hum = Character and Character:FindFirstChildOfClass("Humanoid")
+
+        -- ตรวจสอบเงื่อนไข (ต้องมีตัวละคร, ไม่ตาย, อยู่ในระยะ)
+        if not Character or not Root or not Hum or Hum.Health <= 0 then
+            ESP.Billboard.Enabled = false
+            continue
+        end
+
+        local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
+        local _, OnScreen = Camera:WorldToViewportPoint(Root.Position)
+
+        -- ตรวจสอบระยะและตำแหน่งบนจอ
+        if Distance > MaxDistance or not OnScreen then
+            ESP.Billboard.Enabled = false
+            continue
+        end
+
+        -- แสดงผล Name & Distance
+        if _G.NameESPEnabled or _G.DistanceESPEnabled then
+            ESP.Billboard.Enabled = true
+            ESP.Billboard.Parent = Character:FindFirstChild("Head") or Root
+            
+            local NameTag = _G.NameESPEnabled and Player.Name or ""
+            local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[ %dm ]</font>", math.floor(Distance)) or ""
+            
+            ESP.NameLabel.Text = NameTag .. DistTag
+            -- ปรับขนาดตัวอักษรตามระยะทาง (ยิ่งไกลยิ่งเล็ก)
+            ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 10, 16)
+        else
+            ESP.Billboard.Enabled = false
+        end
+    end
+end)
+
+-- เริ่มทำงานกับผู้เล่นในเซิร์ฟเวอร์
+for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+Tabs.ESP:AddToggle("NameESP", {
+    Title = "ESP Name",
+    Default = false,
+    Callback = function(v) _G.NameESPEnabled = v end
+})
+
+Tabs.ESP:AddToggle("DistanceESP", {
+    Title = "ESP Distance",
+    Default = false,
+    Callback = function(v) _G.DistanceESPEnabled = v end
+})
+
+-- Object
+--=========================
+-- 🔥 Optimized & Fixed Object ESP
+--=========================
+local Object_Config = {
+    Generator = false,
+    Hook = false,
+    Gate = false,
+  	Pallet = false
+}
+
+local Object_Highlights = {}
+
+local OBJ_COLORS = {
+    Generator = Color3.fromRGB(255, 255, 0),
+    Hook = Color3.fromRGB(170, 0, 255),
+    Gate = Color3.fromRGB(0, 170, 255),
+    Pallet = Color3.fromRGB(255, 150, 0)
+}
+
+local OBJ_MAPPING = {
+    ["generator"] = "Generator", ["generators"] = "Generator", 
+    ["new generator"] = "Generator", ["new generators"] = "Generator",
+    ["hook"] = "Hook", ["hooks"] = "Hook",
+    ["gate"] = "Gate", ["gates"] = "Gate",
+    ["palletwrong"] = "Pallet",
+    ["palletpoint"] = "Pallet"
+}
+
+
+-- ฟังก์ชันจัดการลบ Highlight ให้สิ้นซาก
+local function ClearESP(obj)
+    if Object_Highlights[obj] then
+        pcall(function()
+            Object_Highlights[obj]:Destroy()
+        end)
+        Object_Highlights[obj] = nil
+    end
+end
+
+-- ฟังก์ชันจัดการ Highlight รายชิ้น
+local function ManageESP(obj)
+    local typeName = OBJ_MAPPING[string.lower(obj.Name)]
+    if not typeName then return end
+
+    local isEnabled = Object_Config[typeName]
+
+    -- [เพิ่มเฉพาะส่วน Generator] 
+    if isEnabled and typeName == "Generator" then
+        local progress = obj:GetAttribute("RepairProgress") or obj:GetAttribute("ProgressRepair") or 0
+        if progress >= 100 then
+            ClearESP(obj)
+            return -- ถ้าเครื่องเสร็จแล้วให้หยุดทำงานตรงนี้เลย
+        end
+
+        -- ดักจับสัญญาณเผื่อซ่อมเสร็จทีหลัง (Real-time)
+        if not obj:GetAttribute("Reaper_Hooked") then
+            obj:SetAttribute("Reaper_Hooked", true)
+            obj:GetAttributeChangedSignal("RepairProgress"):Connect(function() ManageESP(obj) end)
+            obj:GetAttributeChangedSignal("ProgressRepair"):Connect(function() ManageESP(obj) end)
+        end
+    end
+    -- [จบส่วนที่เพิ่ม]
+
+    if isEnabled then
+        -- Logic เดิมของคุณ 100% (Hook, Gate, Pallet ทำงานผ่านส่วนนี้)
+        if not Object_Highlights[obj] or not Object_Highlights[obj].Parent then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "Reaper_ObjESP"
+            highlight.Adornee = obj
+            highlight.FillColor = OBJ_COLORS[typeName]
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.Parent = obj
+            Object_Highlights[obj] = highlight
+        end
+        Object_Highlights[obj].Enabled = true
+    else
+        ClearESP(obj)
+    end
+end
+
+
+-- ฟังก์ชันสแกน
+local function RefreshType(typeName)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        local nameLower = obj.Name:lower()
+        if OBJ_MAPPING[nameLower] == typeName then
+            ManageESP(obj)
+        end
+    end
+end
+
+
+--=========================
+-- 🔥 UI Setup (Object Tab)
+--=========================
+Tabs.Object:AddToggle("GenESP", {
+    Title = "ESP Generator",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Generator = v
+        if v then 
+            RefreshType("Generator") 
+        else
+            -- ลบเฉพาะ Highlight ของ Generator เมื่อปิด (ส่วนเดิมของคุณ)
+            for obj, _ in pairs(Object_Highlights) do
+                if OBJ_MAPPING[obj.Name:lower()] == "Generator" then ClearESP(obj) end
+            end
+        end
+    end
+})
+
+
+Tabs.Object:AddToggle("HookESP", {
+    Title = "ESP Hook",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Hook = v
+        if v then RefreshType("Hook") else
+            for obj, _ in pairs(Object_Highlights) do
+                if OBJ_MAPPING[obj.Name:lower()] == "Hook" then ClearESP(obj) end
+            end
+        end
+    end
+})
+
+Tabs.Object:AddToggle("GateESP", {
+    Title = "ESP Gate",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Gate = v
+        if v then RefreshType("Gate") else
+            for obj, _ in pairs(Object_Highlights) do
+                if OBJ_MAPPING[obj.Name:lower()] == "Gate" then ClearESP(obj) end
+            end
+        end
+    end
+})
+
+
+Tabs.Object:AddToggle("PalletESP", {
+    Title = "ESP Pallet",
+    Default = false,
+    Callback = function(v)
+        Object_Config.Pallet = v
+        if v then 
+            RefreshType("Pallet") 
+        else
+            -- ล้างเฉพาะ Pallet โดยเช็คผ่าน Mapping
+            for obj, _ in pairs(Object_Highlights) do
+                if OBJ_MAPPING[obj.Name:lower()] == "Pallet" then 
+                    ClearESP(obj) 
+                end
+            end
+        end
+    end
+})
+
+
+--=========================
+-- 🔥 Event Listeners
+--=========================
+workspace.DescendantAdded:Connect(function(obj)
+    -- เพิ่ม Delay เล็กน้อย เผื่อ Object สปอว์นแล้วยังไม่ได้ Set Name
+    task.wait(0.2) 
+    if OBJ_MAPPING[string.lower(obj.Name)] then
+        ManageESP(obj)
+    end
+end)
+
+workspace.DescendantRemoving:Connect(function(obj)
+    ClearESP(obj)
+end)
+
+
+
+
+--teleport
+local selectedPlayer = nil
+local teleportEnabled = false
+local spectating = false
+
+-- ฟังก์ชันดึงรายชื่อผู้เล่น (ยกเว้นตัวเอง)
+local function getList()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            table.insert(list, p.Name)
+        end
+    end
+    return list
+end
+
+-- สร้าง Dropdown สำหรับเลือกผู้เล่น
+local Dropdown = Tabs.Teleport:AddDropdown("PlayerDropdown", {
+    Title = "Select Player",
+    Values = getList(),
+    Multi = false,
+    Default = nil
+})
+
+-- อัปเดตตัวแปรเมื่อมีการเลือกคนใน Dropdown
+Dropdown:OnChanged(function(value)
+    if value then
+        selectedPlayer = Players:FindFirstChild(value)
+        
+        -- ถ้ากำลัง Spectate อยู่ ให้ย้ายกล้องไปหาคนใหม่ทันที
+        if spectating and selectedPlayer and selectedPlayer.Character then
+            local hum = selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum then Camera.CameraSubject = hum end
+        end
+    end
+end)
+
+-- ปุ่มรีเฟรชรายชื่อ
+Tabs.Teleport:AddButton({
+    Title = "Refresh Players",
+    Callback = function()
+        Dropdown:SetValues(getList())
+    end
+})
+
+Tabs.Teleport:AddToggle("tp", {
+    Title = "Teleport",
+    Default = false,
+    Callback = function(state)
+        teleportEnabled = state
+
+        if state then
+            task.spawn(function()
+                while teleportEnabled do
+                    if selectedPlayer and selectedPlayer.Character then
+                        local char = LP.Character
+                        local target = selectedPlayer.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        local tRoot = target and target:FindFirstChild("HumanoidRootPart")
+
+                        if root and tRoot then
+                            -- ใช้ Tween เพื่อเคลื่อนที่ไปด้านบนหัวเป้าหมายเล็กน้อย
+                            TweenService:Create(
+                                root,
+                                TweenInfo.new(0.4, Enum.EasingStyle.Linear),
+                                {CFrame = tRoot.CFrame + Vector3.new(0, 3, 0)}
+                            ):Play()
+                        end
+                    end
+                    task.wait(0.5) -- หน่วงเวลาเพื่อลดภาระเครื่อง
+                end
+            end)
+        end
+    end
+})
+
+Tabs.Teleport:AddToggle("spec", {
+    Title = "Spectate Player",
+    Default = false,
+    Callback = function(state)
+        spectating = state
+
+        if state then
+            -- ส่องเป้าหมาย
+            if selectedPlayer and selectedPlayer.Character then
+                local hum = selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then Camera.CameraSubject = hum end
+            end
+        else
+            -- กลับมาที่ตัวเรา
+            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then Camera.CameraSubject = hum end
+        end
+    end
+})
+
+---------------
+
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:SetLibrary(Fluent)
+
+InterfaceManager:SetFolder("ReaperHub")
+SaveManager:SetFolder("ReaperHub/configs")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+SaveManager:LoadAutoloadConfig()
+
+Window:SelectTab(1)
+
+
+if game.CoreGui:FindFirstChild("ToggleUI") then
+    game.CoreGui.ToggleUI:Destroy()
+end
+
+
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ToggleUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999999
+gui.Parent = game.CoreGui
+
+
+local border = Instance.new("Frame")
+border.Parent = gui
+border.Size = UDim2.new(0,0,0,0)
+border.BackgroundColor3 = Color3.fromRGB(0,0,0)
+border.ZIndex = 1
+border.AnchorPoint = Vector2.new(0,0)
+
+local borderCorner = Instance.new("UICorner")
+borderCorner.CornerRadius = UDim.new(0,14)
+borderCorner.Parent = border
+
+
+local button = Instance.new("ImageButton")
+button.Parent = gui
+button.Size = UDim2.new(0,60,0,60)
+button.Position = UDim2.new(0,60,0.2,0)
+button.AnchorPoint = Vector2.new(0,0)
+
+button.BackgroundTransparency = 1
+button.ZIndex = 999999
+button.AutoButtonColor = false
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0,12)
+corner.Parent = button
+
+local imgOn = "rbxassetid://86279908104891"
+local imgOff = "rbxassetid://86279908104891"
+
+button.Image = imgOn
+button.ScaleType = Enum.ScaleType.Fit
+
+
+local function UpdateBorder()
+
+    local offset = (border.Size.X.Offset - button.Size.X.Offset) / 2
+
+    border.Position = UDim2.new(
+        button.Position.X.Scale,
+        button.Position.X.Offset - offset,
+        button.Position.Y.Scale,
+        button.Position.Y.Offset - offset
+    )
+end
+
+UpdateBorder()
+
+
+local dragging = false
+local dragStart, startPos
+
+button.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPos = button.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+    if dragging then
+
+        local delta = input.Position - dragStart
+
+        button.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+
+        UpdateBorder()
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = false
+    end
+end)
+
+
+local isOpen = true
+
+button.MouseButton1Click:Connect(function()
+
+    isOpen = not isOpen
+
+    if Window then
+        Window:Minimize(not isOpen)
+    end
+
+    button.Image = isOpen and imgOff or imgOn
+
+end)
+
+
+-- Load Success 
+task.wait(0.5)
+print("Reaper Hub Loaded")
