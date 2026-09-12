@@ -1,4 +1,4 @@
--- 1
+-- 2
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -335,7 +335,7 @@ local ATTACK_ANIMS = {
 }
 
 -- // [ GUI CONSTANTS ]
-local GUI_NAME = "HyperX_ReaperStatus"
+local GUI_NAME = "ReaperStatus"
 local Colors = {
     Background = Color3.fromRGB(8, 8, 10),
     Background2 = Color3.fromRGB(13, 13, 16),
@@ -409,7 +409,7 @@ local Header = Instance.new("TextLabel")
 Header.Size = UDim2.new(1, -60, 1, 0)
 Header.Position = UDim2.fromOffset(55, 0)
 Header.BackgroundTransparency = 1
-Header.Text = "HYPER-X SYSTEM"
+Header.Text = "REAPER X SYSTEM"
 Header.TextColor3 = Colors.White
 Header.TextTransparency = 0.4
 Header.TextSize = 10
@@ -584,10 +584,31 @@ end)
 
 -- // [ INITIALIZE ]
 if Tabs and Tabs.Automatic then
-    Tabs.Automatic:AddToggle("AutoParry", { Title = "Auto Parry", Default = false, Callback = function(V) Config.Enabled = V end })
-    Tabs.Automatic:AddSlider("ParryRange", { Title = "Parry Range", Default = 8, Min = 2, Max = 10, Rounding = 1, Callback = function(V) Config.Distance = V end })
-    Tabs.Automatic:AddToggle("ShowRange", { Title = "Show Range Circle", Default = false, Callback = function(V) Config.ShowCircle = V end })
-    Tabs.Automatic:AddToggle("ShowStatusUI", { Title = "Show Status UI", Default = false, Callback = function(V) Config.ShowStatusUI = V end })
+    Tabs.Automatic:AddToggle("AutoParry", { 
+    Title = "Auto Parry", 
+    Default = false, Callback = function(V) 
+    Config.Enabled = V end })
+    
+    Tabs.Automatic:AddSlider("ParryRange", { 
+    Title = "Parry Range", 
+    Default = 8, 
+    Min = 2, 
+    Max = 10, 
+    Rounding = 1, 
+    Callback = function(V) 
+    Config.Distance = V end })
+    
+    Tabs.Automatic:AddToggle("ShowRange", { 
+    Title = "Show Range Circle", 
+    Default = false, 
+    Callback = function(V) 
+    Config.ShowCircle = V end })
+    
+    Tabs.Automatic:AddToggle("ShowStatusUI", { 
+    Title = "Show Status UI", 
+    Default = false, 
+    Callback = function(V) 
+    Config.ShowStatusUI = V end })
 end
 
 for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor) if p.Character then AttachSensor(p.Character) end end end
