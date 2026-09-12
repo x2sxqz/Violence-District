@@ -1,4 +1,4 @@
--- 3
+-- 4
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -589,14 +589,16 @@ if Tabs and Tabs.Automatic then
     Default = false, Callback = function(V) 
     Config.Enabled = V end })
     
-    Tabs.Automatic:AddSlider("ParryRange", { 
-    Title = "Parry Range", 
-    Default = 9, 
-    Min = 2, 
-    Max = 12, 
-    Rounding = 1, 
-    Callback = function(V) 
-    Config.Distance = V end })
+    Tabs.Automatic:AddSlider("ParryRange", {
+    Title = "Parry Range",
+    Default = Config.Distance,
+    Min = 2,
+    Max = 12,
+    Rounding = 1,
+    Callback = function(V)
+        Config.Distance = tonumber(V) or 9
+    end
+})
     
     Tabs.Automatic:AddToggle("ShowRange", { 
     Title = "Show Range Circle", 
