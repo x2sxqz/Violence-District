@@ -7,20 +7,16 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local GUI_NAME = "ReaperMiniStatus"
 
-local Icons = {
-	Reaper = "rbxassetid://131279093559313"
-}
-
 local Colors = {
 	Background = Color3.fromRGB(8, 8, 10),
 	Background2 = Color3.fromRGB(13, 13, 16),
 
-	Red = Color3.fromRGB(255, 35, 55),
-	RedDark = Color3.fromRGB(110, 15, 25),
+	Red = Color3.fromRGB(255, 30, 50),
+	RedDark = Color3.fromRGB(100, 12, 22),
 
 	White = Color3.fromRGB(245, 245, 247),
 	Gray = Color3.fromRGB(145, 145, 152),
-	Muted = Color3.fromRGB(80, 80, 88),
+	Muted = Color3.fromRGB(75, 75, 83),
 
 	TrafficRed = Color3.fromRGB(255, 95, 87),
 	TrafficYellow = Color3.fromRGB(254, 188, 46),
@@ -46,7 +42,6 @@ local function Corner(object, radius)
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, radius)
 	corner.Parent = object
-	return corner
 end
 
 local function Stroke(object, color, thickness, transparency)
@@ -59,10 +54,10 @@ local function Stroke(object, color, thickness, transparency)
 	return stroke
 end
 
-local old = PlayerGui:FindFirstChild(GUI_NAME)
+local Old = PlayerGui:FindFirstChild(GUI_NAME)
 
-if old then
-	old:Destroy()
+if Old then
+	Old:Destroy()
 end
 
 local Screen = Instance.new("ScreenGui")
@@ -72,7 +67,6 @@ Screen.IgnoreGuiInset = true
 Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Screen.Parent = PlayerGui
 
--- Main Window
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Size = UDim2.fromOffset(320, 105)
@@ -85,7 +79,6 @@ Main.Parent = Screen
 
 Corner(Main, 14)
 
--- Outer Red Glow
 local Glow = Stroke(
 	Main,
 	Colors.Red,
@@ -93,15 +86,13 @@ local Glow = Stroke(
 	0.82
 )
 
--- Main Red Edge
 local Edge = Stroke(
 	Main,
 	Colors.Red,
 	1.5,
-	0.05
+	0.04
 )
 
--- Inner Border
 local Inner = Instance.new("Frame")
 Inner.Name = "Inner"
 Inner.Size = UDim2.new(1, -12, 1, -12)
@@ -119,10 +110,10 @@ Stroke(
 	0.25
 )
 
--- Top Bar
+-- Top bar
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, -2, 0, 28)
+TopBar.Size = UDim2.new(1, -2, 0, 27)
 TopBar.Position = UDim2.fromOffset(1, 1)
 TopBar.BackgroundColor3 = Colors.Background2
 TopBar.BackgroundTransparency = 0.15
@@ -131,34 +122,34 @@ TopBar.Parent = Main
 
 Corner(TopBar, 13)
 
--- Traffic Lights
+-- Traffic lights
 local Traffic = Instance.new("Frame")
-Traffic.Size = UDim2.fromOffset(42, 10)
-Traffic.Position = UDim2.fromOffset(12, 9)
+Traffic.Size = UDim2.fromOffset(45, 10)
+Traffic.Position = UDim2.fromOffset(12, 8)
 Traffic.BackgroundTransparency = 1
 Traffic.Parent = TopBar
 
-local trafficColors = {
+local TrafficColors = {
 	Colors.TrafficRed,
 	Colors.TrafficYellow,
 	Colors.TrafficGreen
 }
 
-for i, color in ipairs(trafficColors) do
-	local dot = Instance.new("Frame")
-	dot.Size = UDim2.fromOffset(8, 8)
-	dot.Position = UDim2.fromOffset((i - 1) * 15, 1)
-	dot.BackgroundColor3 = color
-	dot.BorderSizePixel = 0
-	dot.Parent = Traffic
+for i, color in ipairs(TrafficColors) do
+	local Dot = Instance.new("Frame")
+	Dot.Size = UDim2.fromOffset(8, 8)
+	Dot.Position = UDim2.fromOffset((i - 1) * 15, 1)
+	Dot.BackgroundColor3 = color
+	Dot.BorderSizePixel = 0
+	Dot.Parent = Traffic
 
-	Corner(dot, 8)
+	Corner(Dot, 8)
 end
 
 -- Header
 local Header = Instance.new("TextLabel")
-Header.Size = UDim2.new(1, -80, 1, 0)
-Header.Position = UDim2.fromOffset(55, 0)
+Header.Size = UDim2.new(1, -75, 1, 0)
+Header.Position = UDim2.fromOffset(58, 0)
 Header.BackgroundTransparency = 1
 Header.Text = "REAPER HUB"
 Header.TextColor3 = Colors.White
@@ -168,10 +159,10 @@ Header.Font = Enum.Font.GothamBold
 Header.TextXAlignment = Enum.TextXAlignment.Left
 Header.Parent = TopBar
 
--- Red Top Accent
+-- Top red accent
 local TopAccent = Instance.new("Frame")
-TopAccent.Size = UDim2.fromOffset(55, 2)
-TopAccent.Position = UDim2.new(1, -70, 0, 0)
+TopAccent.Size = UDim2.fromOffset(52, 2)
+TopAccent.Position = UDim2.new(1, -67, 0, 0)
 TopAccent.BackgroundColor3 = Colors.Red
 TopAccent.BorderSizePixel = 0
 TopAccent.Parent = Main
@@ -183,135 +174,140 @@ Stroke(
 	0.65
 )
 
--- Status Container
-local StatusContainer = Instance.new("Frame")
-StatusContainer.Name = "StatusContainer"
-StatusContainer.Size = UDim2.new(1, -28, 0, 58)
-StatusContainer.Position = UDim2.fromOffset(14, 36)
-StatusContainer.BackgroundTransparency = 1
-StatusContainer.Parent = Main
+-- Status area
+local StatusArea = Instance.new("Frame")
+StatusArea.Name = "StatusArea"
+StatusArea.Size = UDim2.new(1, -34, 1, -40)
+StatusArea.Position = UDim2.fromOffset(17, 34)
+StatusArea.BackgroundTransparency = 1
+StatusArea.Parent = Main
 
--- Icon Area
-local IconHolder = Instance.new("Frame")
-IconHolder.Size = UDim2.fromOffset(42, 42)
-IconHolder.Position = UDim2.new(0, 0, 0.5, 0)
-IconHolder.AnchorPoint = Vector2.new(0, 0.5)
-IconHolder.BackgroundColor3 = Colors.RedDark
-IconHolder.BackgroundTransparency = 0.7
-IconHolder.BorderSizePixel = 0
-IconHolder.Parent = StatusContainer
+-- Small red status indicator
+local Indicator = Instance.new("Frame")
+Indicator.Name = "Indicator"
+Indicator.Size = UDim2.fromOffset(7, 7)
+Indicator.Position = UDim2.fromOffset(1, 8)
+Indicator.BackgroundColor3 = Colors.Red
+Indicator.BorderSizePixel = 0
+Indicator.Parent = StatusArea
 
-Corner(IconHolder, 12)
+Corner(Indicator, 7)
 
-Stroke(
-	IconHolder,
+local IndicatorGlow = Stroke(
+	Indicator,
 	Colors.Red,
-	1,
+	3,
 	0.45
 )
 
-local Icon = Instance.new("ImageLabel")
-Icon.Size = UDim2.fromOffset(27, 27)
-Icon.Position = UDim2.fromScale(0.5, 0.5)
-Icon.AnchorPoint = Vector2.new(0.5, 0.5)
-Icon.BackgroundTransparency = 1
-Icon.Image = Icons.Reaper
-Icon.ScaleType = Enum.ScaleType.Fit
-Icon.ImageColor3 = Colors.White
-Icon.Parent = IconHolder
-
--- Status Label
+-- Status title
 local StatusTitle = Instance.new("TextLabel")
-StatusTitle.Size = UDim2.new(1, -58, 0, 14)
-StatusTitle.Position = UDim2.fromOffset(56, 7)
+StatusTitle.Size = UDim2.new(1, -18, 0, 13)
+StatusTitle.Position = UDim2.fromOffset(17, 2)
 StatusTitle.BackgroundTransparency = 1
 StatusTitle.Text = "STATUS"
 StatusTitle.TextColor3 = Colors.Muted
 StatusTitle.TextSize = 8
 StatusTitle.Font = Enum.Font.GothamBold
 StatusTitle.TextXAlignment = Enum.TextXAlignment.Left
-StatusTitle.Parent = StatusContainer
+StatusTitle.Parent = StatusArea
 
+-- Main status
 local StatusText = Instance.new("TextLabel")
 StatusText.Name = "Status"
-StatusText.Size = UDim2.new(1, -58, 0, 30)
-StatusText.Position = UDim2.fromOffset(56, 20)
+StatusText.Size = UDim2.new(1, -4, 0, 30)
+StatusText.Position = UDim2.fromOffset(0, 19)
 StatusText.BackgroundTransparency = 1
 StatusText.Text = "Initializing..."
 StatusText.TextColor3 = Colors.White
-StatusText.TextSize = 13
+StatusText.TextSize = 14
 StatusText.Font = Enum.Font.GothamMedium
 StatusText.TextXAlignment = Enum.TextXAlignment.Left
 StatusText.TextYAlignment = Enum.TextYAlignment.Center
 StatusText.TextTruncate = Enum.TextTruncate.AtEnd
-StatusText.Parent = StatusContainer
+StatusText.Parent = StatusArea
 
--- Bottom Red Accent
+-- Bottom accent
 local BottomAccent = Instance.new("Frame")
-BottomAccent.Size = UDim2.fromOffset(70, 2)
-BottomAccent.Position = UDim2.new(0, 18, 1, -2)
+BottomAccent.Size = UDim2.fromOffset(65, 2)
+BottomAccent.Position = UDim2.new(1, -83, 1, -2)
 BottomAccent.BackgroundColor3 = Colors.Red
 BottomAccent.BorderSizePixel = 0
 BottomAccent.Parent = Main
 
--- Status Function
+Stroke(
+	BottomAccent,
+	Colors.Red,
+	4,
+	0.7
+)
+
+-- Status API
 local function SetStatus(text)
-	StatusText.TextTransparency = 1
+	Tween(
+		StatusText,
+		{
+			TextTransparency = 1
+		},
+		0.12
+	)
+
+	task.wait(0.12)
+
+	StatusText.Text = tostring(text)
 
 	Tween(
 		StatusText,
 		{
 			TextTransparency = 0
 		},
-		0.2
+		0.18
 	)
-
-	StatusText.Text = tostring(text)
 end
 
--- Drag System
-local dragging = false
-local dragStart
-local startPosition
+-- Drag
+local Dragging = false
+local DragStart
+local StartPosition
 
-TopBar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
+TopBar.InputBegan:Connect(function(Input)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1
+		or Input.UserInputType == Enum.UserInputType.Touch then
 
-		dragging = true
-		dragStart = input.Position
-		startPosition = Main.Position
+		Dragging = true
+		DragStart = Input.Position
+		StartPosition = Main.Position
 	end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-	if not dragging then
+UserInputService.InputChanged:Connect(function(Input)
+	if not Dragging then
 		return
 	end
 
-	if input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch then
+	if Input.UserInputType == Enum.UserInputType.MouseMovement
+		or Input.UserInputType == Enum.UserInputType.Touch then
 
-		local delta = input.Position - dragStart
+		local Delta = Input.Position - DragStart
 
 		Main.Position = UDim2.new(
-			startPosition.X.Scale,
-			startPosition.X.Offset + delta.X,
-			startPosition.Y.Scale,
-			startPosition.Y.Offset + delta.Y
+			StartPosition.X.Scale,
+			StartPosition.X.Offset + Delta.X,
+			StartPosition.Y.Scale,
+			StartPosition.Y.Offset + Delta.Y
 		)
 	end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
+UserInputService.InputEnded:Connect(function(Input)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1
+		or Input.UserInputType == Enum.UserInputType.Touch then
 
-		dragging = false
+		Dragging = false
 	end
 end)
 
--- Open Animation
+-- Opening animation
 Main.Size = UDim2.fromOffset(0, 0)
 Main.BackgroundTransparency = 1
 
@@ -322,16 +318,17 @@ Tween(
 		BackgroundTransparency = 0
 	},
 	0.45,
-	Enum.EasingStyle.Back
+	Enum.EasingStyle.Back,
+	Enum.EasingDirection.Out
 )
 
--- Subtle Red Pulse
+-- Red pulse
 task.spawn(function()
 	while Main.Parent do
 		Tween(
 			Glow,
 			{
-				Transparency = 0.9
+				Transparency = 0.90
 			},
 			1.2,
 			Enum.EasingStyle.Sine,
@@ -354,5 +351,33 @@ task.spawn(function()
 	end
 end)
 
--- Example
+-- Indicator pulse
+task.spawn(function()
+	while Main.Parent do
+		Tween(
+			IndicatorGlow,
+			{
+				Transparency = 0.75
+			},
+			0.8,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.InOut
+		)
+
+		task.wait(0.8)
+
+		Tween(
+			IndicatorGlow,
+			{
+				Transparency = 0.35
+			},
+			0.8,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.InOut
+		)
+
+		task.wait(0.8)
+	end
+end)
+
 SetStatus("Initializing...")
