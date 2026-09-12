@@ -1,4 +1,4 @@
--- 9
+-- 1
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -39,7 +39,6 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 
 
 local Window = Fluent:CreateWindow({
@@ -311,57 +310,55 @@ end)
 -- 🔥 HYPER-X AUTO PARRY + REAPER STATUS UI
 --=========================================
 local Config = {
-	Enabled = false,
-	Distance = 8,
-	ShowCircle = false,
-	ShowStatusUI = false
+    Enabled = false,
+    Distance = 8,
+    ShowCircle = false,
+    ShowStatusUI = false
 }
 
 local State = {
-	Cooldown = false,
-	CurrentCD = 0,
-	Connections = {},
-	ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
-	ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+    Cooldown = false,
+    CurrentCD = 0,
+    Connections = {},
+    ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
+    ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
 }
 
 local ATTACK_ANIMS = {
-	["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
-	["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
-	["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
-	["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
-	["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
-	["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
-	["121216847022485"] = true
+    ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
+    ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
+    ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
+    ["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
+    ["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
+    ["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
+    ["121216847022485"] = true
 }
 
 -- // [ GUI CONSTANTS ]
-local GUI_NAME = "ReaperMiniStatus"
+local GUI_NAME = "HyperX_ReaperStatus"
 local Colors = {
-	Background = Color3.fromRGB(8, 8, 10),
-	Background2 = Color3.fromRGB(13, 13, 16),
-	Red = Color3.fromRGB(255, 30, 50),
-	RedDark = Color3.fromRGB(100, 12, 22),
-	White = Color3.fromRGB(245, 245, 247),
-	Muted = Color3.fromRGB(75, 75, 83),
-	TrafficRed = Color3.fromRGB(255, 95, 87),
-	TrafficYellow = Color3.fromRGB(254, 188, 46),
-	TrafficGreen = Color3.fromRGB(40, 200, 64)
+    Background = Color3.fromRGB(8, 8, 10),
+    Background2 = Color3.fromRGB(13, 13, 16),
+    Red = Color3.fromRGB(255, 30, 50),
+    RedDark = Color3.fromRGB(100, 12, 22),
+    White = Color3.fromRGB(245, 245, 247),
+    Muted = Color3.fromRGB(75, 75, 83),
+    TrafficRed = Color3.fromRGB(255, 95, 87),
+    TrafficYellow = Color3.fromRGB(254, 188, 46),
+    TrafficGreen = Color3.fromRGB(40, 200, 64)
 }
 
--- // [ GUI UTILS ]
-local function Corner(obj, r) local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, r) c.Parent = obj end
-local function Stroke(obj, col, thick, trans) local s = Instance.new("UIStroke") s.Color = col s.Thickness = thick s.Transparency = trans or 0 s.Parent = obj return s end
-
-if PlayerGui:FindFirstChild(GUI_NAME) then PlayerGui[GUI_NAME]:Destroy() end
+-- // [ GUI BUILDER ]
+if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 
 local Screen = Instance.new("ScreenGui")
 Screen.Name = GUI_NAME
-Screen.ResetOnSpawn = false
-Screen.Parent = PlayerGui
+Screen.IgnoreGuiInset = true
+Screen.Parent = CoreGui
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(280, 105)
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(260, 100)
 Main.Position = UDim2.fromScale(0.5, 0.4)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
 Main.BackgroundColor3 = Colors.Background
@@ -369,92 +366,125 @@ Main.BorderSizePixel = 0
 Main.Visible = false
 Main.Parent = Screen
 
-Corner(Main, 14)
-local MainGlow = Stroke(Main, Colors.Red, 7, 0.82)
+local function ApplyStyle(obj, radius, color, thick, trans)
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, radius) c.Parent = obj
+    local s = Instance.new("UIStroke") s.Color = color s.Thickness = thick s.Transparency = trans or 0 s.Parent = obj
+    return s
+end
 
--- Top Bar with Traffic Lights
+ApplyStyle(Main, 12, Colors.Red, 1.5, 0.2)
+local MainGlow = Instance.new("UIStroke")
+MainGlow.Color = Colors.Red
+MainGlow.Thickness = 6
+MainGlow.Transparency = 0.8
+MainGlow.Parent = Main
+
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, -2, 0, 27)
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, -2, 0, 26)
 TopBar.Position = UDim2.fromOffset(1, 1)
 TopBar.BackgroundColor3 = Colors.Background2
+TopBar.BorderSizePixel = 0
 TopBar.Parent = Main
-Corner(TopBar, 13)
+ApplyStyle(TopBar, 11, Colors.Red, 1, 0.8)
 
 local Traffic = Instance.new("Frame")
 Traffic.Size = UDim2.fromOffset(45, 10)
-Traffic.Position = UDim2.fromOffset(12, 8)
+Traffic.Position = UDim2.fromOffset(10, 8)
 Traffic.BackgroundTransparency = 1
 Traffic.Parent = TopBar
 
 local tCols = {Colors.TrafficRed, Colors.TrafficYellow, Colors.TrafficGreen}
 for i, col in ipairs(tCols) do
-	local d = Instance.new("Frame")
-	d.Size = UDim2.fromOffset(8, 8)
-	d.Position = UDim2.fromOffset((i-1)*15, 1)
-	d.BackgroundColor3 = col
-	d.Parent = Traffic
-	Corner(d, 8)
+    local d = Instance.new("Frame")
+    d.Size = UDim2.fromOffset(7, 7)
+    d.Position = UDim2.fromOffset((i-1)*14, 0)
+    d.BackgroundColor3 = col
+    d.BorderSizePixel = 0
+    d.Parent = Traffic
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = d
 end
 
 local Header = Instance.new("TextLabel")
-Header.Size = UDim2.new(1, -75, 1, 0)
-Header.Position = UDim2.fromOffset(58, 0)
+Header.Size = UDim2.new(1, -60, 1, 0)
+Header.Position = UDim2.fromOffset(55, 0)
 Header.BackgroundTransparency = 1
-Header.Text = "HYPER-X PARRY"
+Header.Text = "HYPER-X SYSTEM"
 Header.TextColor3 = Colors.White
 Header.TextTransparency = 0.4
-Header.TextSize = 9
+Header.TextSize = 10
 Header.Font = Enum.Font.GothamBold
 Header.TextXAlignment = Enum.TextXAlignment.Left
 Header.Parent = TopBar
 
--- Status Rows
 local StatusArea = Instance.new("Frame")
-StatusArea.Size = UDim2.new(1, -34, 1, -40)
-StatusArea.Position = UDim2.fromOffset(17, 34)
+StatusArea.Size = UDim2.new(1, -20, 1, -35)
+StatusArea.Position = UDim2.fromOffset(10, 35)
 StatusArea.BackgroundTransparency = 1
 StatusArea.Parent = Main
 
 local Indicator = Instance.new("Frame")
-Indicator.Size = UDim2.fromOffset(7, 7)
-Indicator.Position = UDim2.fromOffset(1, 10)
+Indicator.Size = UDim2.fromOffset(6, 6)
+Indicator.Position = UDim2.fromOffset(5, 11)
 Indicator.BackgroundColor3 = Colors.TrafficGreen
 Indicator.Parent = StatusArea
-Corner(Indicator, 7)
-local IndGlow = Stroke(Indicator, Colors.TrafficGreen, 3, 0.45)
+local IndCorner = Instance.new("UICorner") IndCorner.CornerRadius = UDim.new(1, 0) IndCorner.Parent = Indicator
+local IndGlow = Instance.new("UIStroke") IndGlow.Thickness = 3 IndGlow.Color = Colors.TrafficGreen IndGlow.Transparency = 0.5 IndGlow.Parent = Indicator
 
 local DistLabel = Instance.new("TextLabel")
-DistLabel.Size = UDim2.new(1, -18, 0, 15)
-DistLabel.Position = UDim2.fromOffset(17, 5)
+DistLabel.Size = UDim2.new(1, -20, 0, 15)
+DistLabel.Position = UDim2.fromOffset(20, 5)
 DistLabel.BackgroundTransparency = 1
 DistLabel.Text = "Killer Distance : N/A"
 DistLabel.TextColor3 = Colors.White
-DistLabel.TextSize = 11
+DistLabel.TextSize = 12
 DistLabel.Font = Enum.Font.GothamBold
 DistLabel.TextXAlignment = Enum.TextXAlignment.Left
 DistLabel.Parent = StatusArea
 
 local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -18, 0, 15)
-StatusLabel.Position = UDim2.fromOffset(17, 22)
+StatusLabel.Size = UDim2.new(1, -20, 0, 15)
+StatusLabel.Position = UDim2.fromOffset(20, 23)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Status : READY"
 StatusLabel.TextColor3 = Colors.TrafficGreen
-StatusLabel.TextSize = 11
+StatusLabel.TextSize = 12
 StatusLabel.Font = Enum.Font.GothamBold
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = StatusArea
 
--- // [ CORE LOGIC ]
+-- // [ DRAG SYSTEM ]
+local dragging, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- // [ LOGIC HELPERS ]
 local function GetRole(p)
-	local team = p.Team and p.Team.Name or "None"
-	local tl = team:lower()
-	if tl:find("killer") or tl:find("murder") or tl:find("beast") then return "Killer" end
-	if tl:find("survivor") or tl:find("innocent") or tl:find("human") then return "Survivors" end
-	return "Spectator"
+    local team = p.Team and p.Team.Name or "None"
+    local tl = team:lower()
+    if tl:find("killer") or tl:find("murder") or tl:find("beast") then return "Killer" end
+    if tl:find("survivor") or tl:find("innocent") or tl:find("human") then return "Survivors" end
+    return "Spectator"
 end
 
--- Precise Cooldown Logic (Restored)
 State.ResultRemote.OnClientEvent:Connect(function(_, cd)
     State.CurrentCD = tonumber(cd) or 0.8
     State.Cooldown = true
@@ -472,30 +502,30 @@ State.ResultRemote.OnClientEvent:Connect(function(_, cd)
 end)
 
 local function PerformInput()
-	pcall(function()
-		local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
-		if mobBtn and mobBtn.Visible then firesignal(mobBtn.MouseButton1Down)
-		else VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0) task.wait(0.01) VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) end
-	end)
+    pcall(function()
+        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+        if mobBtn and mobBtn.Visible then firesignal(mobBtn.MouseButton1Down)
+        else VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0) task.wait(0.01) VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) end
+    end)
 end
 
 local function AttachSensor(char)
-	if not char or State.Connections[char] then return end
-	local hum = char:WaitForChild("Humanoid", 10)
-	local animator = hum:WaitForChild("Animator", 10)
-	State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
-		if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
-		if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
-			local myChar = LP.Character
-			if myChar and myChar:GetAttribute("State") ~= "Downed" then
-				if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
-					State.Cooldown = true
-					for i = 1, 8 do State.ParryRemote:FireServer() end
-					PerformInput()
-				end
-			end
-		end
-	end)
+    if not char or State.Connections[char] then return end
+    local hum = char:WaitForChild("Humanoid", 10)
+    local animator = hum:WaitForChild("Animator", 10)
+    State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
+        if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
+        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
+            local myChar = LP.Character
+            if myChar and myChar:GetAttribute("State") ~= "Downed" then
+                if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
+                    State.Cooldown = true
+                    for i = 1, 8 do State.ParryRemote:FireServer() end
+                    PerformInput()
+                end
+            end
+        end
+    end)
 end
 
 -- // [ RENDER LOOP ]
@@ -505,73 +535,64 @@ RangeAdorn.Transparency = 0.5
 RangeAdorn.Parent = workspace.Terrain
 
 RunService.RenderStepped:Connect(function()
-	local myChar = LP.Character
-	local myRole = GetRole(LP)
-	Main.Visible = Config.ShowStatusUI
+    local myChar = LP.Character
+    local myRole = GetRole(LP)
+    Main.Visible = Config.ShowStatusUI
 
-	if myChar and myChar.PrimaryPart then
-		local myPos = myChar.PrimaryPart.Position
-		local closestDist = 999
-		
-		for _, p in pairs(Players:GetPlayers()) do
-			if p ~= LP and p.Character and p.Character.PrimaryPart and GetRole(p) == "Killer" then
-				local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
-				if d < closestDist then closestDist = d end
-			end
-		end
+    if myChar and myChar.PrimaryPart then
+        local myPos = myChar.PrimaryPart.Position
+        local closestDist = 999
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character and p.Character.PrimaryPart and GetRole(p) == "Killer" then
+                local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
+                if d < closestDist then closestDist = d end
+            end
+        end
 
-		if Config.ShowStatusUI then
-			if myRole ~= "Survivors" then
-				DistLabel.Text = "Killer Distance : N/A"
-				StatusLabel.Text = "Status : N/A"
-				StatusLabel.TextColor3 = Colors.Muted
-				Indicator.BackgroundColor3 = Colors.Muted
-			else
-				DistLabel.Text = "Killer Distance : " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
-				if State.CurrentCD > 0 then
-					StatusLabel.Text = string.format("Status : CD (%.1fs)", State.CurrentCD)
-					StatusLabel.TextColor3 = Colors.TrafficYellow
-					Indicator.BackgroundColor3 = Colors.TrafficYellow
-				else
-					StatusLabel.Text = "Status : READY"
-					StatusLabel.TextColor3 = Colors.TrafficGreen
-					Indicator.BackgroundColor3 = Colors.TrafficGreen
-				end
-			end
-			IndGlow.Color = Indicator.BackgroundColor3
-		end
+        if Config.ShowStatusUI then
+            if myRole ~= "Survivors" then
+                DistLabel.Text = "Killer Distance : N/A"
+                StatusLabel.Text = "Status : N/A"
+                StatusLabel.TextColor3 = Colors.Muted
+                Indicator.BackgroundColor3 = Colors.Muted
+                IndGlow.Color = Colors.Muted
+            else
+                DistLabel.Text = "Killer Distance : " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
+                if State.CurrentCD > 0 then
+                    StatusLabel.Text = string.format("Status : CD (%.1fs)", State.CurrentCD)
+                    StatusLabel.TextColor3 = Colors.TrafficYellow
+                    Indicator.BackgroundColor3 = Colors.TrafficYellow
+                else
+                    StatusLabel.Text = "Status : READY"
+                    StatusLabel.TextColor3 = Colors.TrafficGreen
+                    Indicator.BackgroundColor3 = Colors.TrafficGreen
+                end
+                IndGlow.Color = Indicator.BackgroundColor3
+            end
+        end
 
-		if Config.ShowCircle and myRole == "Survivors" then
-			RangeAdorn.Visible = true
-			RangeAdorn.Color3 = (State.CurrentCD > 0 and Colors.TrafficYellow) or (closestDist <= Config.Distance and Colors.Red) or Colors.TrafficGreen
-			RangeAdorn.Radius = Config.Distance
-			RangeAdorn.InnerRadius = Config.Distance - 0.2
-			RangeAdorn.Adornee = workspace.Terrain
-			RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
-		else RangeAdorn.Visible = false end
-	end
+        if Config.ShowCircle and myRole == "Survivors" then
+            RangeAdorn.Visible = true
+            RangeAdorn.Color3 = (State.CurrentCD > 0 and Colors.TrafficYellow) or (closestDist <= Config.Distance and Colors.TrafficRed) or Colors.TrafficGreen
+            RangeAdorn.Radius = Config.Distance
+            RangeAdorn.InnerRadius = Config.Distance - 0.2
+            RangeAdorn.Adornee = workspace.Terrain
+            RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
+        else RangeAdorn.Visible = false end
+    end
 end)
 
--- // [ DRAG SYSTEM ]
-local Dragging, DragStart, StartPos
-TopBar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true DragStart = i.Position StartPos = Main.Position end end)
-UserInputService.InputChanged:Connect(function(i) if Dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-	local Delta = i.Position - DragStart
-	Main.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + Delta.X, StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y)
-end end)
-UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end)
-
--- // [ UI LIBRARY ]
+-- // [ INITIALIZE ]
 if Tabs and Tabs.Automatic then
-	Tabs.Automatic:AddToggle("AutoParry", { Title = "Auto Parry", Default = false, Callback = function(V) Config.Enabled = V end })
-	Tabs.Automatic:AddSlider("ParryRange", { Title = "Parry Range", Default = 8, Min = 2, Max = 10, Rounding = 1, Callback = function(V) Config.Distance = V end })
-	Tabs.Automatic:AddToggle("ShowRange", { Title = "Show Range Circle", Default = false, Callback = function(V) Config.ShowCircle = V end })
-	Tabs.Automatic:AddToggle("ShowStatusUI", { Title = "Show Status UI", Default = false, Callback = function(V) Config.ShowStatusUI = V end })
+    Tabs.Automatic:AddToggle("AutoParry", { Title = "Auto Parry", Default = false, Callback = function(V) Config.Enabled = V end })
+    Tabs.Automatic:AddSlider("ParryRange", { Title = "Parry Range", Default = 8, Min = 2, Max = 10, Rounding = 1, Callback = function(V) Config.Distance = V end })
+    Tabs.Automatic:AddToggle("ShowRange", { Title = "Show Range Circle", Default = false, Callback = function(V) Config.ShowCircle = V end })
+    Tabs.Automatic:AddToggle("ShowStatusUI", { Title = "Show Status UI", Default = false, Callback = function(V) Config.ShowStatusUI = V end })
 end
 
--- // [ INITIALIZE ]
 for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor) if p.Character then AttachSensor(p.Character) end end end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
