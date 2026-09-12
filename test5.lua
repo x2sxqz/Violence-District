@@ -1,4 +1,4 @@
---2
+--5
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -16,7 +16,6 @@ local Colors = {
 	RedDark = Color3.fromRGB(100, 12, 22),
 
 	White = Color3.fromRGB(245, 245, 247),
-	Gray = Color3.fromRGB(145, 145, 152),
 	Muted = Color3.fromRGB(75, 75, 83),
 
 	TrafficRed = Color3.fromRGB(255, 95, 87),
@@ -111,7 +110,7 @@ Stroke(
 	0.25
 )
 
--- Top bar
+-- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, -2, 0, 27)
@@ -123,7 +122,7 @@ TopBar.Parent = Main
 
 Corner(TopBar, 13)
 
--- Traffic lights
+-- Traffic Lights
 local Traffic = Instance.new("Frame")
 Traffic.Size = UDim2.fromOffset(45, 10)
 Traffic.Position = UDim2.fromOffset(12, 8)
@@ -160,10 +159,11 @@ Header.Font = Enum.Font.GothamBold
 Header.TextXAlignment = Enum.TextXAlignment.Left
 Header.Parent = TopBar
 
--- Top red accent
+-- Top Right Accent
 local TopAccent = Instance.new("Frame")
-TopAccent.Size = UDim2.fromOffset(52, 2)
-TopAccent.Position = UDim2.new(1, -67, 0, 0)
+TopAccent.Name = "TopRightAccent"
+TopAccent.Size = UDim2.fromOffset(55, 2)
+TopAccent.Position = UDim2.new(1, -75, 0, 0)
 TopAccent.BackgroundColor3 = Colors.Red
 TopAccent.BorderSizePixel = 0
 TopAccent.Parent = Main
@@ -175,7 +175,7 @@ Stroke(
 	0.65
 )
 
--- Status area
+-- Status Area
 local StatusArea = Instance.new("Frame")
 StatusArea.Name = "StatusArea"
 StatusArea.Size = UDim2.new(1, -34, 1, -40)
@@ -183,7 +183,7 @@ StatusArea.Position = UDim2.fromOffset(17, 34)
 StatusArea.BackgroundTransparency = 1
 StatusArea.Parent = Main
 
--- Small red status indicator
+-- Status Indicator
 local Indicator = Instance.new("Frame")
 Indicator.Name = "Indicator"
 Indicator.Size = UDim2.fromOffset(7, 7)
@@ -201,7 +201,7 @@ local IndicatorGlow = Stroke(
 	0.45
 )
 
--- Status title
+-- Status Title
 local StatusTitle = Instance.new("TextLabel")
 StatusTitle.Size = UDim2.new(1, -18, 0, 13)
 StatusTitle.Position = UDim2.fromOffset(17, 2)
@@ -213,7 +213,7 @@ StatusTitle.Font = Enum.Font.GothamBold
 StatusTitle.TextXAlignment = Enum.TextXAlignment.Left
 StatusTitle.Parent = StatusArea
 
--- Main status
+-- Main Status
 local StatusText = Instance.new("TextLabel")
 StatusText.Name = "Status"
 StatusText.Size = UDim2.new(1, -4, 0, 30)
@@ -228,10 +228,11 @@ StatusText.TextYAlignment = Enum.TextYAlignment.Center
 StatusText.TextTruncate = Enum.TextTruncate.AtEnd
 StatusText.Parent = StatusArea
 
--- Bottom accent
+-- Bottom Left Accent
 local BottomAccent = Instance.new("Frame")
-BottomAccent.Size = UDim2.fromOffset(65, 2)
-BottomAccent.Position = UDim2.new(1, -83, 1, -2)
+BottomAccent.Name = "BottomLeftAccent"
+BottomAccent.Size = UDim2.fromOffset(70, 2)
+BottomAccent.Position = UDim2.new(0, 18, 1, -2)
 BottomAccent.BackgroundColor3 = Colors.Red
 BottomAccent.BorderSizePixel = 0
 BottomAccent.Parent = Main
@@ -243,7 +244,7 @@ Stroke(
 	0.7
 )
 
--- Status API
+-- Status Function
 local function SetStatus(text)
 	Tween(
 		StatusText,
@@ -266,7 +267,7 @@ local function SetStatus(text)
 	)
 end
 
--- Drag
+-- Drag System
 local Dragging = false
 local DragStart
 local StartPosition
@@ -308,7 +309,7 @@ UserInputService.InputEnded:Connect(function(Input)
 	end
 end)
 
--- Opening animation
+-- Opening Animation
 Main.Size = UDim2.fromOffset(0, 0)
 Main.BackgroundTransparency = 1
 
@@ -323,7 +324,7 @@ Tween(
 	Enum.EasingDirection.Out
 )
 
--- Red pulse
+-- Main Glow Pulse
 task.spawn(function()
 	while Main.Parent do
 		Tween(
@@ -352,7 +353,7 @@ task.spawn(function()
 	end
 end)
 
--- Indicator pulse
+-- Indicator Pulse
 task.spawn(function()
 	while Main.Parent do
 		Tween(
@@ -381,4 +382,4 @@ task.spawn(function()
 	end
 end)
 
-SetStatus("Initializing...")
+SetStatus("test...")
