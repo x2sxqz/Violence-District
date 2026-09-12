@@ -1,4 +1,4 @@
--- 7
+-- 8
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -928,133 +928,268 @@ end)
 
 
 -- esp all
-local Players = game:GetService("Players")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
+local MaxDistance = 3500
 
 _G.NameESPEnabled = false
-_G.DistanceESPEnabled = false
 _G.HealthESPEnabled = false
-local MaxDistance = 4000
+_G.DistanceESPEnabled = false -- เพิ่มบรรทัดนี้
+
+
+--========================
+-- CACHE
+--========================
 local ESPCache = {}
 
--- ฟังก์ชันสร้าง ESP และจัดการการเกิดของตัวละคร
+--========================
+-- CREATE ESP
+--========================
+--========================
+-- CREATE ESP (Billboard Version)
+--========================
 local function CreateESP(Player)
     if Player == LocalPlayer then return end
 
-    local function Setup(Character)
-        local Root = Character:WaitForChild("HumanoidRootPart", 10)
-        if not Root then return end
+    -- สร้าง Billboard สำหรับชื่อและระยะทาง (คมชัดกว่า)
+    local Billboard = Instance.new("BillboardGui")
+    Billboard.Name = "ReaperTag"
+    Billboard.AlwaysOnTop = true
+    Billboard.Size = UDim2.new(0, 200, 0, 50)
+    Billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+    Billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-        -- ลบของเก่าถ้ามี
-        if ESPCache[Player] and ESPCache[Player].Billboard then
-            ESPCache[Player].Billboard:Destroy()
-        end
+    local NameLabel = Instance.new("TextLabel", Billboard)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Size = UDim2.new(1, 0, 1, 0)
+    NameLabel.Text = ""
+    NameLabel.Font = Enum.Font.RobotoMono -- ฟอนต์ RobotoMono ตามสั่ง
+    NameLabel.TextSize = 14
+    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NameLabel.TextStrokeTransparency = 0
+    NameLabel.RichText = true
 
-        local Billboard = Instance.new("BillboardGui")
-        Billboard.Name = "ReaperTag"
-        Billboard.AlwaysOnTop = true
-        Billboard.Size = UDim2.new(0, 200, 0, 50)
-        Billboard.ExtentsOffset = Vector3.new(0, 3, 0)
-        Billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        Billboard.Enabled = false
-        Billboard.Parent = Root -- เซ็ต Parent ครั้งเดียวที่นี่ ลด Frame Drop มหาศาล
+    -- ระบบแถบเลือด Drawing (คงไว้ตามเดิม)
+    local HealthOutline = Drawing.new("Square")
+    HealthOutline.Visible = false
+    HealthOutline.Filled = true
+    HealthOutline.Thickness = 0
+    HealthOutline.Color = Color3.fromRGB(0,0,0)
+    HealthOutline.Transparency = 0.6
 
-        local NameLabel = Instance.new("TextLabel", Billboard)
-        NameLabel.BackgroundTransparency = 1
-        NameLabel.Size = UDim2.new(1, 0, 1, 0)
-        NameLabel.Font = Enum.Font.RobotoMono
-        NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        NameLabel.TextStrokeTransparency = 0
-        NameLabel.RichText = true
+    local HealthBar = Drawing.new("Square")
+    HealthBar.Visible = false
+    HealthBar.Filled = true
+    HealthBar.Thickness = 0
+    HealthBar.Color = Color3.fromRGB(0,255,100)
+    HealthBar.Transparency = 1
 
-        ESPCache[Player] = {
-            Billboard = Billboard,
-            NameLabel = NameLabel,
-            LastText = "",
-            LastDist = 0,
-            LastSize = 0,
-            LastVisible = false
-        }
-    end
-
-    Player.CharacterAdded:Connect(Setup)
-    if Player.Character then Setup(Player.Character) end
+    ESPCache[Player] = {
+        Billboard = Billboard,
+        NameLabel = NameLabel,
+        HealthOutline = HealthOutline,
+        HealthBar = HealthBar
+    }
 end
 
--- ประมวลผลหลัก (Optimized Loop)
-task.spawn(function()
-    while task.wait(0.03) do
-        local CamPos = Camera.CFrame.Position
-        
-        for Player, ESP in pairs(ESPCache) do
-            local Character = Player.Character
-            local Root = Character and Character:FindFirstChild("HumanoidRootPart")
-            local Hum = Character and Character:FindFirstChildOfClass("Humanoid")
+local function RemoveESP(Player)
+    local ESP = ESPCache[Player]
+    if ESP then
+        if ESP.Billboard then ESP.Billboard:Destroy() end
+        if ESP.HealthOutline then ESP.HealthOutline:Remove() end
+        if ESP.HealthBar then ESP.HealthBar:Remove() end
+        ESPCache[Player] = nil
+    end
+end
 
-            if not Root or not Hum or Hum.Health <= 0 then
-                if ESP.Billboard.Enabled then ESP.Billboard.Enabled = false end
-                continue
+local function HideESP(ESP)
+    if ESP.Billboard then ESP.Billboard.Enabled = false end
+    ESP.HealthOutline.Visible = false
+    ESP.HealthBar.Visible = false
+end
+
+
+
+--========================
+-- PLAYER HANDLING
+--========================
+for _,Player in ipairs(Players:GetPlayers()) do
+    CreateESP(Player)
+end
+
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+--========================
+-- MAIN RENDER
+--========================
+RunService.RenderStepped:Connect(function()
+
+    for Player,ESP in pairs(ESPCache) do
+
+        local Character = Player.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+        local Head = Character and Character:FindFirstChild("Head")
+
+        --========================
+        -- VALIDATION
+        --========================
+        if not Character
+        or not Humanoid
+        or not Root
+        or not Head
+        or Humanoid.Health <= 0 then
+
+            HideESP(ESP)
+            continue
+        end
+
+        --========================
+        -- DISTANCE
+        --========================
+        local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
+
+        if Distance > MaxDistance then
+            HideESP(ESP)
+            continue
+        end
+
+        --========================
+        -- VIEWPORT
+        --========================
+        local RootPos, OnScreen = Camera:WorldToViewportPoint(Root.Position)
+
+        if not OnScreen then
+            HideESP(ESP)
+            continue
+        end
+
+        local HeadPos = Camera:WorldToViewportPoint(
+            Head.Position + Vector3.new(0,0.6,0)
+        )
+
+        local LegPos = Camera:WorldToViewportPoint(
+            Root.Position - Vector3.new(0,3,0)
+        )
+
+        --========================
+        -- SCALE
+        --========================
+        local Height = math.abs(HeadPos.Y - LegPos.Y)
+        local Width = Height / 2
+
+        local X = RootPos.X - Width / 2
+        local Y = RootPos.Y - Height / 2
+
+                --========================
+        -- NAME & DISTANCE ESP
+        --========================
+                --========================
+        -- NAME & DISTANCE ESP (Format: NAME [ Distance ])
+        --========================
+        if _G.NameESPEnabled or _G.DistanceESPEnabled then
+            ESP.Billboard.Enabled = true
+            ESP.Billboard.Parent = Head
+            
+            local NameTag = _G.NameESPEnabled and Player.Name or "" -- ใช้ Username
+            local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[ %dm ]</font>", math.floor(Distance)) or ""
+            
+            -- รวมข้อความ NAME [ Distance ]
+            if _G.NameESPEnabled and _G.DistanceESPEnabled then
+                ESP.NameLabel.Text = NameTag .. " " .. DistTag
+            else
+                ESP.NameLabel.Text = NameTag .. DistTag
             end
+            
+            -- ปรับขนาดตามระยะทาง
+            ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 12, 16)
+        else
+            if ESP.Billboard then ESP.Billboard.Enabled = false end
+        end
 
-            local Dist = (CamPos - Root.Position).Magnitude
-            local _, OnScreen = Camera:WorldToViewportPoint(Root.Position)
 
-            -- ตรวจสอบเงื่อนไขการแสดงผล
-            local ShouldVisible = OnScreen and Dist <= MaxDistance and (_G.NameESPEnabled or _G.DistanceESPEnabled or _G.HealthESPEnabled)
 
-            if not ShouldVisible then
-                if ESP.Billboard.Enabled then ESP.Billboard.Enabled = false end
-                continue
-            end
 
-            -- อัปเดตเนื้อหา (อัปเดตเฉพาะเมื่อระยะเปลี่ยนเกิน 2 หน่วย หรือเลือดเปลี่ยน)
-            if math.abs(ESP.LastDist - Dist) > 2 or ESP.LastVisible ~= ShouldVisible then
-                local NameTag = _G.NameESPEnabled and Player.Name or ""
-                local DistTag = _G.DistanceESPEnabled and " <font color='#AAAAAA'>["..math.floor(Dist).."m]</font>" or ""
-                local HealthTag = ""
+        --========================
+        -- HEALTH BAR
+        --========================
+        if _G.HealthESPEnabled then
 
-                if _G.HealthESPEnabled then
-                    local HP = Hum.Health
-                    local Color = (HP < 40 and "#FF0000") or (HP < 60 and "#FFA500") or (HP < 90 and "#FFFF00") or "#00FF00"
-                    HealthTag = " <font color='"..Color.."'>["..math.floor(HP).."]</font>"
-                end
+            local HealthPercent = math.clamp(
+                Humanoid.Health / Humanoid.MaxHealth,
+                0,
+                1
+            )
 
-                local FinalText = NameTag..DistTag..HealthTag
-                if ESP.LastText ~= FinalText then
-                    ESP.NameLabel.Text = FinalText
-                    ESP.LastText = FinalText
-                end
-                ESP.LastDist = Dist
-            end
+            local BarHeight = Height * HealthPercent
 
-            -- อัปเดต TextSize เฉพาะเมื่อจำเป็น
-            local NewSize = math.clamp(16 - (Dist / 150), 10, 16)
-            if ESP.LastSize ~= NewSize then
-                ESP.NameLabel.TextSize = NewSize
-                ESP.LastSize = NewSize
-            end
+            local BarX = X - 7
+            local BarY = Y
 
-            if not ESP.Billboard.Enabled then ESP.Billboard.Enabled = true end
-            ESP.LastVisible = ShouldVisible
+            -- OUTLINE
+            ESP.HealthOutline.Visible = true
+            ESP.HealthOutline.Size = Vector2.new(
+                4,
+                Height + 2
+            )
+
+            ESP.HealthOutline.Position = Vector2.new(
+                BarX - 1,
+                BarY - 1
+            )
+
+            -- BAR
+            ESP.HealthBar.Visible = true
+            ESP.HealthBar.Size = Vector2.new(
+                2,
+                BarHeight
+            )
+
+            ESP.HealthBar.Position = Vector2.new(
+                BarX,
+                BarY + (Height - BarHeight)
+            )
+
+            -- HEALTH COLOR
+            ESP.HealthBar.Color = Color3.fromRGB(
+                255 - (255 * HealthPercent),
+                255 * HealthPercent,
+                0
+            )
+
+        else
+
+            ESP.HealthOutline.Visible = false
+            ESP.HealthBar.Visible = false
         end
     end
 end)
 
--- Initial & Events
-for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
-Players.PlayerAdded:Connect(CreateESP)
-Players.PlayerRemoving:Connect(function(p)
-    if ESPCache[p] then
-        if ESPCache[p].Billboard then ESPCache[p].Billboard:Destroy() end
-        ESPCache[p] = nil
+--========================
+-- TOGGLES
+--========================
+Tabs.ESP:AddToggle("NameESP", {
+    Title = "ESP Name",
+    Default = false,
+    Callback = function(v)
+        _G.NameESPEnabled = v
     end
-end)
+})
 
--- UI Toggles
-Tabs.ESP:AddToggle("NameESP", { Title = "ESP Name", Default = false, Callback = function(v) _G.NameESPEnabled = v end })
-Tabs.ESP:AddToggle("DistanceESP", { Title = "ESP Distance", Default = false, Callback = function(v) _G.DistanceESPEnabled = v end })
-Tabs.ESP:AddToggle("HealthESP", { Title = "ESP Health", Default = false, Callback = function(v) _G.HealthESPEnabled = v end })
+Tabs.ESP:AddToggle("HealthESP", {
+    Title = "ESP Health",
+    Default = false,
+    Callback = function(v)
+        _G.HealthESPEnabled = v
+    end
+})
+
+Tabs.ESP:AddToggle("DistanceESP", {
+    Title = "ESP Distance",
+    Default = false,
+    Callback = function(v)
+        _G.DistanceESPEnabled = v
+    end
+})
 
 
 
