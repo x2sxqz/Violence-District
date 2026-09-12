@@ -1,4 +1,4 @@
--- 2
+-- 3
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -311,7 +311,7 @@ end)
 --=========================================
 local Config = {
     Enabled = false,
-    Distance = 8,
+    Distance = 9,
     ShowCircle = false,
     ShowStatusUI = false
 }
@@ -593,7 +593,7 @@ if Tabs and Tabs.Automatic then
     Title = "Parry Range", 
     Default = 8, 
     Min = 2, 
-    Max = 10, 
+    Max = 12, 
     Rounding = 1, 
     Callback = function(V) 
     Config.Distance = V end })
