@@ -591,7 +591,7 @@ if Tabs and Tabs.Automatic then
     
     Tabs.Automatic:AddSlider("ParryRange", { 
     Title = "Parry Range", 
-    Default = 8, 
+    Default = 9, 
     Min = 2, 
     Max = 12, 
     Rounding = 1, 
