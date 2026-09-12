@@ -1,4 +1,4 @@
--- 5
+-- 6
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -43,7 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA 3]",
+SubTitle = "Violence District",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -924,15 +924,18 @@ end)
 
 
 
+
+
+
 -- esp all
 _G.NameESPEnabled = false
 _G.DistanceESPEnabled = false
-_G.HealthESPEnabled = false -- เพิ่มตัวแปรควบคุม Health
+_G.HealthESPEnabled = false
 local MaxDistance = 4000
 local ESPCache = {}
 
 local function CreateESP(Player)
-    if Player == game:GetService("Players").LocalPlayer then return end
+    if Player == LocalPlayer then return end
 
     local Billboard = Instance.new("BillboardGui")
     Billboard.Name = "ReaperTag"
@@ -944,7 +947,6 @@ local function CreateESP(Player)
     local NameLabel = Instance.new("TextLabel", Billboard)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Size = UDim2.new(1, 0, 1, 0)
-    NameLabel.Text = ""
     NameLabel.Font = Enum.Font.RobotoMono
     NameLabel.TextSize = 14
     NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -953,67 +955,77 @@ local function CreateESP(Player)
 
     ESPCache[Player] = {
         Billboard = Billboard,
-        NameLabel = NameLabel
+        NameLabel = NameLabel,
+        LastText = ""
     }
 end
 
 local function RemoveESP(Player)
     if ESPCache[Player] then
-        if ESPCache[Player].Billboard then ESPCache[Player].Billboard:Destroy() end
+        ESPCache[Player].Billboard:Destroy()
         ESPCache[Player] = nil
     end
 end
 
-game:GetService("RunService").RenderStepped:Connect(function()
-    local Camera = workspace.CurrentCamera
-    for Player, ESP in pairs(ESPCache) do
-        local Character = Player.Character
-        local Root = Character and Character:FindFirstChild("HumanoidRootPart")
-        local Hum = Character and Character:FindFirstChildOfClass("Humanoid")
+-- ใช้ Task Loop เพื่อประหยัดทรัพยากรกว่า RenderStepped
+task.spawn(function()
+    while task.wait(0.03) do
+        for Player, ESP in pairs(ESPCache) do
+            local Character = Player.Character
+            local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+            local Hum = Character and Character:FindFirstChildOfClass("Humanoid")
 
-        if not Character or not Root or not Hum or Hum.Health <= 0 then
-            ESP.Billboard.Enabled = false
-            continue
-        end
-
-        local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
-        local _, OnScreen = Camera:WorldToViewportPoint(Root.Position)
-
-        if Distance > MaxDistance or not OnScreen then
-            ESP.Billboard.Enabled = false
-            continue
-        end
-
-        -- Logic การแสดงผล Name, Distance และ Health
-        if _G.NameESPEnabled or _G.DistanceESPEnabled or _G.HealthESPEnabled then
-            ESP.Billboard.Enabled = true
-            ESP.Billboard.Parent = Character:FindFirstChild("Head") or Root
-            
-            local NameTag = _G.NameESPEnabled and Player.Name or ""
-            local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[%dm]</font>", math.floor(Distance)) or ""
-            
-            local HealthTag = ""
-            if _G.HealthESPEnabled then
-                local HealthPercent = math.clamp(Hum.Health / Hum.MaxHealth, 0, 1)
-                -- คำนวณสีจากเขียวไปแดง (HSV: 0.33 คือสีเขียว, 0 คือสีแดง)
-                local HealthColor = Color3.fromHSV(HealthPercent * 0.33, 1, 1):ToHex()
-                HealthTag = string.format(" <font color='#%s'>[%d%%]</font>", HealthColor, math.floor(HealthPercent * 100))
+            if not Character or not Root or not Hum or Hum.Health <= 0 then
+                ESP.Billboard.Enabled = false
+                continue
             end
-            
-            ESP.NameLabel.Text = NameTag .. DistTag .. HealthTag
-            ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 10, 16)
-        else
-            ESP.Billboard.Enabled = false
+
+            local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
+            local _, OnScreen = Camera:WorldToViewportPoint(Root.Position)
+
+            if Distance > MaxDistance or not OnScreen then
+                ESP.Billboard.Enabled = false
+                continue
+            end
+
+            if _G.NameESPEnabled or _G.DistanceESPEnabled or _G.HealthESPEnabled then
+                local NameTag = _G.NameESPEnabled and Player.Name or ""
+                local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[%dm]</font>", math.floor(Distance)) or ""
+                local HealthTag = ""
+
+                if _G.HealthESPEnabled then
+                    local HP = Hum.Health
+                    local Color = "#00FF00" -- 90-100 (เขียว)
+                    if HP < 40 then Color = "#FF0000" -- 0-39 (แดง)
+                    elseif HP < 60 then Color = "#FFA500" -- 40-59 (ส้ม)
+                    elseif HP < 90 then Color = "#FFFF00" -- 60-89 (เหลือง)
+                    end
+                    HealthTag = string.format(" <font color='%s'>[%d]</font>", Color, math.floor(HP))
+                end
+
+                local FinalText = NameTag .. DistTag .. HealthTag
+                
+                -- อัปเดต Property เฉพาะเมื่อมีการเปลี่ยนแปลงจริง
+                if ESP.LastText ~= FinalText then
+                    ESP.NameLabel.Text = FinalText
+                    ESP.LastText = FinalText
+                end
+
+                ESP.Billboard.Parent = Character:FindFirstChild("Head") or Root
+                ESP.Billboard.Enabled = true
+                ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 10, 16)
+            else
+                ESP.Billboard.Enabled = false
+            end
         end
     end
 end)
 
--- จัดการผู้เล่นเข้า/ออกเซิร์ฟเวอร์
-for _, p in ipairs(game:GetService("Players"):GetPlayers()) do CreateESP(p) end
-game:GetService("Players").PlayerAdded:Connect(CreateESP)
-game:GetService("Players").PlayerRemoving:Connect(RemoveESP)
+for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
 
--- UI Toggles
+-- UI Toggles (เชื่อมเข้ากับ UI ของคุณ)
 Tabs.ESP:AddToggle("NameESP", {
     Title = "ESP Name",
     Default = false,
@@ -1031,6 +1043,9 @@ Tabs.ESP:AddToggle("HealthESP", {
     Default = false,
     Callback = function(v) _G.HealthESPEnabled = v end
 })
+
+
+
 
 
 -- Object
