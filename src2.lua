@@ -1,4 +1,4 @@
--- 8
+-- 9
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -144,11 +144,96 @@ end
 startKeyTimer()
 
 
-Tabs.Status:AddParagraph({
-    Title = "Player Profile",
-    Content = "Display Name: " .. lp.DisplayName ..
-              "\nUsername: @" .. lp.Name
+
+-- Killer X
+local KillerLabel = Tabs.Status:AddParagraph({
+    Title = "Next Killer Candidate:",
+    Content = "Waiting for data..."
 })
+
+local MapLabel = Tabs.Status:AddParagraph({
+    Title = "Upcoming Map:",
+    Content = "Waiting for votes..."
+})
+
+--// --- Logic: Killer Prediction (Event-driven) ---
+
+local function UpdateHighestChance()
+    local targetKiller = "None"
+    local maxChance = -1
+    local allPlayers = Players:GetPlayers()
+
+    for i = 1, #allPlayers do
+        local p = allPlayers[i]
+        local chance = p:GetAttribute("KillerChance") or (p:FindFirstChild("leaderstats") and p.leaderstats:FindFirstChild("Chance") and p.leaderstats.Chance.Value) or 0
+        
+        if chance > maxChance then
+            maxChance = chance
+            targetKiller = p.Name .. " (" .. tostring(chance) .. "%)"
+        end
+    end
+    
+    KillerLabel:SetTitle("Next Killer Candidate: " .. targetKiller)
+end
+
+-- ฟังก์ชั่นสำหรับผูก Event ให้ผู้เล่น
+local function MonitorPlayer(player)
+    -- 1. เช็คผ่าน Attribute (ถ้าระบบเกมใช้ Attribute)
+    player:GetAttributeChangedSignal("KillerChance"):Connect(UpdateHighestChance)
+    
+    -- 2. เช็คผ่าน Leaderstats (ถ้าระบบเกมใช้ Value Object)
+    local stats = player:WaitForChild("leaderstats", 5)
+    if stats then
+        local chanceObj = stats:WaitForChild("Chance", 5)
+        if chanceObj then
+            chanceObj.Changed:Connect(UpdateHighestChance)
+        end
+    end
+    
+    -- อัปเดตทันทีเมื่อคนเข้าใหม่
+    UpdateHighestChance()
+end
+
+-- ตรวจสอบผู้เล่นปัจจุบันและคนที่เข้ามาใหม่
+for _, player in ipairs(Players:GetPlayers()) do
+    task.spawn(MonitorPlayer, player)
+end
+Players.PlayerAdded:Connect(MonitorPlayer)
+Players.PlayerRemoving:Connect(UpdateHighestChance)
+
+--// --- Logic: Map Prediction (Event-driven) ---
+
+local mapValue = ReplicatedStorage:FindFirstChild("NextMap") or ReplicatedStorage:FindFirstChild("SelectedMap")
+
+if mapValue then
+    -- อัปเดตทันทีเมื่อ Value ใน ReplicatedStorage เปลี่ยน
+    mapValue.Changed:Connect(function(newMap)
+        local mapName = (newMap ~= "") and newMap or "Intermission..."
+        MapLabel:SetTitle("Upcoming Map: " .. mapName)
+    end)
+    
+    -- Initial Check
+    if mapValue.Value ~= "" then
+        MapLabel:SetTitle("Upcoming Map: " .. mapValue.Value)
+    end
+else
+    -- กรณี Object ยังไม่ถูกสร้าง (รองรับ Dynamic Object)
+    ReplicatedStorage.ChildAdded:Connect(function(child)
+        if child.Name == "NextMap" or child.Name == "SelectedMap" then
+            child.Changed:Connect(function(newMap)
+                MapLabel:SetTitle("Upcoming Map: " .. newMap)
+            end)
+        end
+    end)
+end
+
+-- เรียกใช้งานครั้งแรกเพื่อ Set ค่าเริ่มต้น
+UpdateHighestChance()
+
+
+
+
+
 
 local PlayerLabel = Tabs.Status:AddParagraph({
     Title = "Players",
