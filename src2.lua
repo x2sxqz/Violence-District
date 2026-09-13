@@ -1,4 +1,4 @@
--- 11
+-- 13
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -1469,7 +1469,65 @@ Tabs.Teleport:AddToggle("spec", {
 })
 
 -- Teleport to Object or something
---// UI Buttons (Teleport Tab)
+--// 1. Variables & Mapping (Essential)
+local lp = game.Players.LocalPlayer
+local OBJ_MAPPING = {
+    ["generator"] = "Generator", ["generators"] = "Generator", 
+    ["new generator"] = "Generator", ["new generators"] = "Generator",
+    ["hook"] = "Hook", ["hooks"] = "Hook",
+    ["gate"] = "Gate", ["gates"] = "Gate",
+    ["palletwrong"] = "Pallet", ["palletpoint"] = "Pallet"
+}
+
+--// 2. Helper Functions (Essential)
+local function GetHRP(model)
+    return model and model:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetRole(p)
+    local team = p.Team and p.Team.Name or "None"
+    local tl = team:lower()
+    if tl:find("killer") or tl:find("murder") or tl:find("beast") then return "Killer" end
+    if tl:find("survivor") or tl:find("innocent") or tl:find("human") then return "Survivors" end
+    return "Spectator"
+end
+
+local function TeleportTo(pos)
+    local char = lp.Character
+    local hrp = GetHRP(char)
+    if char and hrp and pos then
+        char:PivotTo(pos)
+    end
+end
+
+local function GetNearestObject(targetType)
+    local nearest = nil
+    local minDist = math.huge
+    local hrp = GetHRP(lp.Character)
+    if not hrp then return nil end
+    local myPos = hrp.Position
+
+    for _, v in ipairs(workspace:GetDescendants()) do
+        local mappedName = OBJ_MAPPING[v.Name:lower()]
+        if mappedName == targetType then
+            -- Logic พิเศษสำหรับ Generator (ถ้าซ่อมเสร็จ 100% ให้ข้าม)
+            if targetType == "Generator" then
+                local progress = v:GetAttribute("RepairProgress") or v:GetAttribute("ProgressRepair") or 0
+                if progress >= 100 then continue end
+            end
+            
+            local pos = v:GetPivot().Position
+            local dist = (myPos - pos).Magnitude
+            if dist < minDist then
+                minDist = dist
+                nearest = v:GetPivot()
+            end
+        end
+    end
+    return nearest
+end
+
+--// 3. Teleport Buttons (Using Tabs.Teleport)
 Tabs.Teleport:AddButton({
     Title = "Teleport to Generator",
     Callback = function()
@@ -1536,6 +1594,8 @@ Tabs.Teleport:AddButton({
         end
     end
 })
+
+
 
 
 
