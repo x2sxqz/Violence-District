@@ -145,94 +145,6 @@ startKeyTimer()
 
 
 
--- Killer X
-local KillerLabel = Tabs.Status:AddParagraph({
-    Title = "Next Killer Candidate:",
-    Content = "Waiting for data..."
-})
-
-local MapLabel = Tabs.Status:AddParagraph({
-    Title = "Upcoming Map:",
-    Content = "Waiting for votes..."
-})
-
---// --- Logic: Killer Prediction (Event-driven) ---
-
-local function UpdateHighestChance()
-    local targetKiller = "None"
-    local maxChance = -1
-    local allPlayers = Players:GetPlayers()
-
-    for i = 1, #allPlayers do
-        local p = allPlayers[i]
-        local chance = p:GetAttribute("KillerChance") or (p:FindFirstChild("leaderstats") and p.leaderstats:FindFirstChild("Chance") and p.leaderstats.Chance.Value) or 0
-        
-        if chance > maxChance then
-            maxChance = chance
-            targetKiller = p.Name .. " (" .. tostring(chance) .. "%)"
-        end
-    end
-    
-    KillerLabel:SetTitle("Next Killer Candidate: " .. targetKiller)
-end
-
--- ฟังก์ชั่นสำหรับผูก Event ให้ผู้เล่น
-local function MonitorPlayer(player)
-    -- 1. เช็คผ่าน Attribute (ถ้าระบบเกมใช้ Attribute)
-    player:GetAttributeChangedSignal("KillerChance"):Connect(UpdateHighestChance)
-    
-    -- 2. เช็คผ่าน Leaderstats (ถ้าระบบเกมใช้ Value Object)
-    local stats = player:WaitForChild("leaderstats", 5)
-    if stats then
-        local chanceObj = stats:WaitForChild("Chance", 5)
-        if chanceObj then
-            chanceObj.Changed:Connect(UpdateHighestChance)
-        end
-    end
-    
-    -- อัปเดตทันทีเมื่อคนเข้าใหม่
-    UpdateHighestChance()
-end
-
--- ตรวจสอบผู้เล่นปัจจุบันและคนที่เข้ามาใหม่
-for _, player in ipairs(Players:GetPlayers()) do
-    task.spawn(MonitorPlayer, player)
-end
-Players.PlayerAdded:Connect(MonitorPlayer)
-Players.PlayerRemoving:Connect(UpdateHighestChance)
-
---// --- Logic: Map Prediction (Event-driven) ---
-
-local mapValue = ReplicatedStorage:FindFirstChild("NextMap") or ReplicatedStorage:FindFirstChild("SelectedMap")
-
-if mapValue then
-    -- อัปเดตทันทีเมื่อ Value ใน ReplicatedStorage เปลี่ยน
-    mapValue.Changed:Connect(function(newMap)
-        local mapName = (newMap ~= "") and newMap or "Intermission..."
-        MapLabel:SetTitle("Upcoming Map: " .. mapName)
-    end)
-    
-    -- Initial Check
-    if mapValue.Value ~= "" then
-        MapLabel:SetTitle("Upcoming Map: " .. mapValue.Value)
-    end
-else
-    -- กรณี Object ยังไม่ถูกสร้าง (รองรับ Dynamic Object)
-    ReplicatedStorage.ChildAdded:Connect(function(child)
-        if child.Name == "NextMap" or child.Name == "SelectedMap" then
-            child.Changed:Connect(function(newMap)
-                MapLabel:SetTitle("Upcoming Map: " .. newMap)
-            end)
-        end
-    end)
-end
-
--- เรียกใช้งานครั้งแรกเพื่อ Set ค่าเริ่มต้น
-UpdateHighestChance()
-
-
-
-
 
 
 local PlayerLabel = Tabs.Status:AddParagraph({
@@ -1555,6 +1467,103 @@ Tabs.Teleport:AddToggle("spec", {
         end
     end
 })
+
+-- Teleport to Object or something
+local function GetHRP(model)
+    return model and model:FindFirstChild("HumanoidRootPart")
+end
+
+local function TeleportTo(pos)
+    if lp.Character and GetHRP(lp.Character) then
+        lp.Character:PivotTo(pos)
+    end
+end
+
+--// 1. Teleport to Generator
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Generator",
+    Description = "",
+    Callback = function()
+        local target = nil
+        local minDist = math.huge
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v.Name == "Generator" or v:FindFirstChild("GeneratorMesh") then
+                local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
+                if part then
+                    local dist = (GetHRP(lp.Character).Position - part.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        target = part.CFrame * CFrame.new(0, 3, 0)
+                    end
+                end
+            end
+        end
+        if target then TeleportTo(target) end
+    end
+})
+
+--// 2. Teleport to Gate
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Gate",
+    Description = "",
+    Callback = function()
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v.Name:find("Gate") or v.Name:find("Exit") then
+                TeleportTo(v:GetPivot() * CFrame.new(0, 3, 0))
+                break
+            end
+        end
+    end
+})
+
+--// 3. Teleport to Hook
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Hook",
+    Description = "",
+    Callback = function()
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v.Name:find("Hook") and v:IsA("Model") then
+                TeleportTo(v:GetPivot() * CFrame.new(0, 3, 0))
+                break
+            end
+        end
+    end
+})
+
+--// 4. Teleport to Killer
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Killer",
+    Description = "",
+    Callback = function()
+        for _, v in ipairs(game.Players:GetPlayers()) do
+            if v ~= lp and (v:GetAttribute("Killer") or v:GetAttribute("Role") == "Killer" or v.TeamColor == BrickColor.new("Really red")) then
+                if v.Character and GetHRP(v.Character) then
+                    TeleportTo(GetHRP(v.Character).CFrame * CFrame.new(0, 0, 3))
+                    break
+                end
+            end
+        end
+    end
+})
+
+--// 5. Teleport to Low Health Player (< 90%)
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Low Health Player",
+    Description = "",
+    Callback = function()
+        for _, v in ipairs(game.Players:GetPlayers()) do
+            if v ~= lp and v.Character and v.Character:FindFirstChild("Humanoid") then
+                local hum = v.Character.Humanoid
+                if hum.Health > 0 and hum.Health < (hum.MaxHealth * 0.9) then
+                    TeleportTo(GetHRP(v.Character).CFrame * CFrame.new(0, 0, 3))
+                    break
+                end
+            end
+        end
+    end
+})
+
+
 
 ---------------
 
