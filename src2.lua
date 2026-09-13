@@ -1469,6 +1469,15 @@ Tabs.Teleport:AddToggle("spec", {
 })
 
 -- Teleport to Object or something
+local function GetRole(p)
+    local team = p.Team and p.Team.Name or "None"
+    local tl = team:lower()
+    if tl:find("killer") or tl:find("murder") or tl:find("beast") or tl:find("the") then 
+        return "Killer" 
+    end
+    return "Survivor"
+end
+
 local function GetHRP(model)
     return model and model:FindFirstChild("HumanoidRootPart")
 end
@@ -1530,13 +1539,13 @@ Tabs.Teleport:AddButton({
     end
 })
 
---// 4. Teleport to Killer
+--// 4. Teleport to Killer (Updated Logic)
 Tabs.Teleport:AddButton({
     Title = "Teleport to Killer",
     Description = "",
     Callback = function()
         for _, v in ipairs(game.Players:GetPlayers()) do
-            if v ~= lp and (v:GetAttribute("Killer") or v:GetAttribute("Role") == "Killer" or v.TeamColor == BrickColor.new("Really red")) then
+            if v ~= lp and GetRole(v) == "Killer" then
                 if v.Character and GetHRP(v.Character) then
                     TeleportTo(GetHRP(v.Character).CFrame * CFrame.new(0, 0, 3))
                     break
@@ -1562,6 +1571,7 @@ Tabs.Teleport:AddButton({
         end
     end
 })
+
 
 
 
