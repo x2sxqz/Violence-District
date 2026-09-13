@@ -1444,7 +1444,6 @@ Tabs.Teleport:AddToggle("tp", {
 
 -- Teleport to Object or something
 --// 1. Variables & Mapping
-local lp = game.Players.LocalPlayer
 local OBJ_MAPPING = {
     ["generator"] = "Generator", ["generators"] = "Generator", 
     ["new generator"] = "Generator", ["new generators"] = "Generator",
