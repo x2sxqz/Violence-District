@@ -1,6 +1,4 @@
---=========================
--- 🔥 Lib Load Screen Reaper Hub 16
---=========================
+-- 1
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -40,12 +38,12 @@ local lp = LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 
 local Window = Fluent:CreateWindow({
 Title = "REAPER HUB",
-SubTitle = "Violence District [BETA]",
+SubTitle = "Violence District",
 TabWidth = 160,
 Size = UDim2.fromOffset(520, 360),
 Theme = "ExtremeReaper",
@@ -60,6 +58,7 @@ local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/L
 local Tabs = {
 Status = Window:AddTab({ Title = "Status", Icon = "signal-high" }),
 Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+Automatic = Window:AddTab({ Title = "Automatic", Icon = "compass" }),
 Player = Window:AddTab({ Title = "Player", Icon = "user" }),
 ESP = Window:AddTab({ Title = "ESP", Icon = "box" }),
 Object = Window:AddTab({ Title = "Object", Icon = "layout-grid" }),
@@ -145,11 +144,8 @@ end
 startKeyTimer()
 
 
-Tabs.Status:AddParagraph({
-    Title = "Player Profile",
-    Content = "Display Name: " .. lp.DisplayName ..
-              "\nUsername: @" .. lp.Name
-})
+
+
 
 local PlayerLabel = Tabs.Status:AddParagraph({
     Title = "Players",
@@ -213,13 +209,6 @@ end)
 
 --Main
 --Aimsilent
-
-
-
-
-
-
-
 --skillcheck
 if _G.HyperX_Loop then _G.HyperX_Loop:Disconnect() end
 
@@ -277,7 +266,6 @@ local function Trigger()
 end
 
 _G.HyperX_Loop = RunService.RenderStepped:Connect(function()
-    -- เช็ค Config.Enabled ตรงๆ แบบตัวที่มึงให้มา
     if not Config.Enabled or State.busy then return end
     
     local prompt = PlayerGui:FindFirstChild("SkillCheckPromptGui")
@@ -312,6 +300,335 @@ _G.HyperX_Loop = RunService.RenderStepped:Connect(function()
         end
     end
 end)
+
+
+-- Automatic
+--=========================================
+-- 🔥 HYPER-X AUTO PARRY + REAPER STATUS UI
+--=========================================
+local Config = {
+    Enabled = false,
+    Distance = 9,
+    ShowCircle = false,
+    ShowStatusUI = false
+}
+
+local State = {
+    Cooldown = false,
+    CurrentCD = 0,
+    Connections = {},
+    ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
+    ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+}
+
+local ATTACK_ANIMS = {
+    ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
+    ["139369275981139"] = true, ["132817836308238"] = true, ["129784271201071"] = true,
+    ["133963973694098"] = true, ["117042998468241"] = true, ["105374834496520"] = true,
+    ["111920872708571"] = true, ["78432063483146"] = true, ["118907603246885"] = true,
+    ["138720291317243"] = true, ["115244153053858"] = true, ["130593238885843"] = true,
+    ["122812055447896"] = true, ["78935059863801"] = true, ["135002183282873"] = true,
+    ["121216847022485"] = true
+}
+
+-- // [ GUI CONSTANTS ]
+local GUI_NAME = "ReaperStatus"
+local Colors = {
+    Background = Color3.fromRGB(8, 8, 10),
+    Background2 = Color3.fromRGB(13, 13, 16),
+    Red = Color3.fromRGB(255, 30, 50),
+    RedDark = Color3.fromRGB(100, 12, 22),
+    White = Color3.fromRGB(245, 245, 247),
+    Muted = Color3.fromRGB(75, 75, 83),
+    TrafficRed = Color3.fromRGB(255, 95, 87),
+    TrafficYellow = Color3.fromRGB(254, 188, 46),
+    TrafficGreen = Color3.fromRGB(40, 200, 64)
+}
+
+-- // [ GUI BUILDER ]
+if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
+
+local Screen = Instance.new("ScreenGui")
+Screen.Name = GUI_NAME
+Screen.IgnoreGuiInset = true
+Screen.Parent = CoreGui
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(260, 100)
+Main.Position = UDim2.fromScale(0.5, 0.4)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Colors.Background
+Main.BorderSizePixel = 0
+Main.Visible = false
+Main.Parent = Screen
+
+local function ApplyStyle(obj, radius, color, thick, trans)
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, radius) c.Parent = obj
+    local s = Instance.new("UIStroke") s.Color = color s.Thickness = thick s.Transparency = trans or 0 s.Parent = obj
+    return s
+end
+
+ApplyStyle(Main, 12, Colors.Red, 1.5, 0.2)
+local MainGlow = Instance.new("UIStroke")
+MainGlow.Color = Colors.Red
+MainGlow.Thickness = 6
+MainGlow.Transparency = 0.8
+MainGlow.Parent = Main
+
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, -2, 0, 26)
+TopBar.Position = UDim2.fromOffset(1, 1)
+TopBar.BackgroundColor3 = Colors.Background2
+TopBar.BorderSizePixel = 0
+TopBar.Parent = Main
+ApplyStyle(TopBar, 11, Colors.Red, 1, 0.8)
+
+local Traffic = Instance.new("Frame")
+Traffic.Size = UDim2.fromOffset(45, 10)
+Traffic.Position = UDim2.fromOffset(10, 8)
+Traffic.BackgroundTransparency = 1
+Traffic.Parent = TopBar
+
+local tCols = {Colors.TrafficRed, Colors.TrafficYellow, Colors.TrafficGreen}
+for i, col in ipairs(tCols) do
+    local d = Instance.new("Frame")
+    d.Size = UDim2.fromOffset(7, 7)
+    d.Position = UDim2.fromOffset((i-1)*14, 0)
+    d.BackgroundColor3 = col
+    d.BorderSizePixel = 0
+    d.Parent = Traffic
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = d
+end
+
+local Header = Instance.new("TextLabel")
+Header.Size = UDim2.new(1, -60, 1, 0)
+Header.Position = UDim2.fromOffset(55, 0)
+Header.BackgroundTransparency = 1
+Header.Text = "REAPER X SYSTEM"
+Header.TextColor3 = Colors.White
+Header.TextTransparency = 0.4
+Header.TextSize = 10
+Header.Font = Enum.Font.GothamBold
+Header.TextXAlignment = Enum.TextXAlignment.Left
+Header.Parent = TopBar
+
+local StatusArea = Instance.new("Frame")
+StatusArea.Size = UDim2.new(1, -20, 1, -35)
+StatusArea.Position = UDim2.fromOffset(10, 35)
+StatusArea.BackgroundTransparency = 1
+StatusArea.Parent = Main
+
+local Indicator = Instance.new("Frame")
+Indicator.Size = UDim2.fromOffset(6, 6)
+Indicator.Position = UDim2.fromOffset(5, 11)
+Indicator.BackgroundColor3 = Colors.TrafficGreen
+Indicator.Parent = StatusArea
+local IndCorner = Instance.new("UICorner") IndCorner.CornerRadius = UDim.new(1, 0) IndCorner.Parent = Indicator
+local IndGlow = Instance.new("UIStroke") IndGlow.Thickness = 3 IndGlow.Color = Colors.TrafficGreen IndGlow.Transparency = 0.5 IndGlow.Parent = Indicator
+
+local DistLabel = Instance.new("TextLabel")
+DistLabel.Size = UDim2.new(1, -20, 0, 15)
+DistLabel.Position = UDim2.fromOffset(20, 5)
+DistLabel.BackgroundTransparency = 1
+DistLabel.Text = "Killer Distance : N/A"
+DistLabel.TextColor3 = Colors.White
+DistLabel.TextSize = 12
+DistLabel.Font = Enum.Font.GothamBold
+DistLabel.TextXAlignment = Enum.TextXAlignment.Left
+DistLabel.Parent = StatusArea
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 15)
+StatusLabel.Position = UDim2.fromOffset(20, 23)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status : READY"
+StatusLabel.TextColor3 = Colors.TrafficGreen
+StatusLabel.TextSize = 12
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = StatusArea
+
+-- // [ DRAG SYSTEM ]
+local dragging, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- // [ LOGIC HELPERS ]
+local function GetRole(p)
+    local team = p.Team and p.Team.Name or "None"
+    local tl = team:lower()
+    if tl:find("killer") or tl:find("murder") or tl:find("beast") then return "Killer" end
+    if tl:find("survivor") or tl:find("innocent") or tl:find("human") then return "Survivors" end
+    return "Spectator"
+end
+
+State.ResultRemote.OnClientEvent:Connect(function(_, cd)
+    State.CurrentCD = tonumber(cd) or 0.8
+    State.Cooldown = true
+    task.spawn(function()
+        local lastTick = tick()
+        while State.CurrentCD > 0 do
+            local delta = tick() - lastTick
+            lastTick = tick()
+            State.CurrentCD = math.max(0, State.CurrentCD - delta)
+            task.wait()
+        end
+        State.Cooldown = false
+        State.CurrentCD = 0
+    end)
+end)
+
+local function PerformInput()
+    pcall(function()
+        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+        if mobBtn and mobBtn.Visible then firesignal(mobBtn.MouseButton1Down)
+        else VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0) task.wait(0.01) VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) end
+    end)
+end
+
+local function AttachSensor(char)
+    if not char or State.Connections[char] then return end
+    local hum = char:WaitForChild("Humanoid", 10)
+    local animator = hum:WaitForChild("Animator", 10)
+    State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
+        if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
+        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
+            local myChar = LP.Character
+            if myChar and myChar:GetAttribute("State") ~= "Downed" then
+                if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
+                    State.Cooldown = true
+                    for i = 1, 8 do State.ParryRemote:FireServer() end
+                    PerformInput()
+                end
+            end
+        end
+    end)
+end
+
+-- // [ RENDER LOOP ]
+local RangeAdorn = Instance.new("CylinderHandleAdornment")
+RangeAdorn.Height = 0.1
+RangeAdorn.Transparency = 0.5
+RangeAdorn.Parent = workspace.Terrain
+
+RunService.RenderStepped:Connect(function()
+    local myChar = LP.Character
+    local myRole = GetRole(LP)
+    Main.Visible = Config.ShowStatusUI
+
+    if myChar and myChar.PrimaryPart then
+        local myPos = myChar.PrimaryPart.Position
+        local closestDist = 999
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character and p.Character.PrimaryPart and GetRole(p) == "Killer" then
+                local d = (myPos - p.Character.PrimaryPart.Position).Magnitude
+                if d < closestDist then closestDist = d end
+            end
+        end
+
+        if Config.ShowStatusUI then
+            if myRole ~= "Survivors" then
+                DistLabel.Text = "Killer Distance : N/A"
+                StatusLabel.Text = "Status : N/A"
+                StatusLabel.TextColor3 = Colors.Muted
+                Indicator.BackgroundColor3 = Colors.Muted
+                IndGlow.Color = Colors.Muted
+            else
+                DistLabel.Text = "Killer Distance : " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
+                if State.CurrentCD > 0 then
+                    StatusLabel.Text = string.format("Status : CD (%.1fs)", State.CurrentCD)
+                    StatusLabel.TextColor3 = Colors.TrafficYellow
+                    Indicator.BackgroundColor3 = Colors.TrafficYellow
+                else
+                    StatusLabel.Text = "Status : READY"
+                    StatusLabel.TextColor3 = Colors.TrafficGreen
+                    Indicator.BackgroundColor3 = Colors.TrafficGreen
+                end
+                IndGlow.Color = Indicator.BackgroundColor3
+            end
+        end
+
+        if Config.ShowCircle and myRole == "Survivors" then
+            RangeAdorn.Visible = true
+            RangeAdorn.Color3 = (State.CurrentCD > 0 and Colors.TrafficYellow) or (closestDist <= Config.Distance and Colors.TrafficRed) or Colors.TrafficGreen
+            RangeAdorn.Radius = Config.Distance
+            RangeAdorn.InnerRadius = Config.Distance - 0.2
+            RangeAdorn.Adornee = workspace.Terrain
+            RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
+        else RangeAdorn.Visible = false end
+    end
+end)
+
+-- // [ INITIALIZE ]
+if Tabs and Tabs.Automatic then
+    Tabs.Automatic:AddToggle("AutoParry", { 
+    Title = "Auto Parry", 
+    Default = false, Callback = function(V) 
+    Config.Enabled = V end })
+    
+    Tabs.Automatic:AddSlider("ParryRange", {
+    Title = "Parry Range",
+    Default = Config.Distance,
+    Min = 2,
+    Max = 12,
+    Rounding = 1,
+    Callback = function(V)
+        Config.Distance = tonumber(V) or 9
+    end
+})
+    
+    Tabs.Automatic:AddToggle("ShowRange", { 
+    Title = "Show Range Circle", 
+    Default = false, 
+    Callback = function(V) 
+    Config.ShowCircle = V end })
+    
+    Tabs.Automatic:AddToggle("ShowStatusUI", { 
+    Title = "Show Status UI", 
+    Default = false, 
+    Callback = function(V) 
+    Config.ShowStatusUI = V end })
+end
+
+for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor) if p.Character then AttachSensor(p.Character) end end end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -352,12 +669,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ช่องกรอกตัวเลขความเร็ว
+-- walkspeed limit
 Tabs.Player:AddInput("WSV", {
     Title = "Speed Value",
+    Description = "Limit 40",
     Default = "16",
     Callback = function(v)
-        WSValue = tonumber(v) or 16
+        WSValue = math.clamp(tonumber(v) or 16, 1, 40)
     end
 })
 
@@ -405,7 +723,6 @@ end
 
 Tabs.Player:AddToggle("NC", {
     Title = "Noclip",
-    Description = "",
     Default = false,
     Callback = function(Value)
         SetNoclip(Value)
@@ -607,14 +924,30 @@ end)
 
 
 
+
+-- esp all
+local MaxDistance = 3500
+
 _G.NameESPEnabled = false
-_G.DistanceESPEnabled = false
-local MaxDistance = 4000
+_G.HealthESPEnabled = false
+_G.DistanceESPEnabled = false -- เพิ่มบรรทัดนี้
+
+
+--========================
+-- CACHE
+--========================
 local ESPCache = {}
 
+--========================
+-- CREATE ESP
+--========================
+--========================
+-- CREATE ESP (Billboard Version)
+--========================
 local function CreateESP(Player)
-    if Player == LP then return end
+    if Player == LocalPlayer then return end
 
+    -- สร้าง Billboard สำหรับชื่อและระยะทาง (คมชัดกว่า)
     local Billboard = Instance.new("BillboardGui")
     Billboard.Name = "ReaperTag"
     Billboard.AlwaysOnTop = true
@@ -626,79 +959,240 @@ local function CreateESP(Player)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Size = UDim2.new(1, 0, 1, 0)
     NameLabel.Text = ""
-    NameLabel.Font = Enum.Font.RobotoMono -- ฟอนต์ตามที่คุณใช้
+    NameLabel.Font = Enum.Font.RobotoMono -- ฟอนต์ RobotoMono ตามสั่ง
     NameLabel.TextSize = 14
     NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     NameLabel.TextStrokeTransparency = 0
     NameLabel.RichText = true
 
+    -- ระบบแถบเลือด Drawing (คงไว้ตามเดิม)
+    local HealthOutline = Drawing.new("Square")
+    HealthOutline.Visible = false
+    HealthOutline.Filled = true
+    HealthOutline.Thickness = 0
+    HealthOutline.Color = Color3.fromRGB(0,0,0)
+    HealthOutline.Transparency = 0.6
+
+    local HealthBar = Drawing.new("Square")
+    HealthBar.Visible = false
+    HealthBar.Filled = true
+    HealthBar.Thickness = 0
+    HealthBar.Color = Color3.fromRGB(0,255,100)
+    HealthBar.Transparency = 1
+
     ESPCache[Player] = {
         Billboard = Billboard,
-        NameLabel = NameLabel
+        NameLabel = NameLabel,
+        HealthOutline = HealthOutline,
+        HealthBar = HealthBar
     }
 end
 
 local function RemoveESP(Player)
-    if ESPCache[Player] then
-        if ESPCache[Player].Billboard then ESPCache[Player].Billboard:Destroy() end
+    local ESP = ESPCache[Player]
+    if ESP then
+        if ESP.Billboard then ESP.Billboard:Destroy() end
+        if ESP.HealthOutline then ESP.HealthOutline:Remove() end
+        if ESP.HealthBar then ESP.HealthBar:Remove() end
         ESPCache[Player] = nil
     end
 end
 
+local function HideESP(ESP)
+    if ESP.Billboard then ESP.Billboard.Enabled = false end
+    ESP.HealthOutline.Visible = false
+    ESP.HealthBar.Visible = false
+end
+
+
+
+--========================
+-- PLAYER HANDLING
+--========================
+for _,Player in ipairs(Players:GetPlayers()) do
+    CreateESP(Player)
+end
+
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+--========================
+-- MAIN RENDER
+--========================
 RunService.RenderStepped:Connect(function()
-    for Player, ESP in pairs(ESPCache) do
+
+    for Player,ESP in pairs(ESPCache) do
+
         local Character = Player.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
         local Root = Character and Character:FindFirstChild("HumanoidRootPart")
-        local Hum = Character and Character:FindFirstChildOfClass("Humanoid")
+        local Head = Character and Character:FindFirstChild("Head")
 
-        -- ตรวจสอบเงื่อนไข (ต้องมีตัวละคร, ไม่ตาย, อยู่ในระยะ)
-        if not Character or not Root or not Hum or Hum.Health <= 0 then
-            ESP.Billboard.Enabled = false
+        --========================
+        -- VALIDATION
+        --========================
+        if not Character
+        or not Humanoid
+        or not Root
+        or not Head
+        or Humanoid.Health <= 0 then
+
+            HideESP(ESP)
             continue
         end
 
+        --========================
+        -- DISTANCE
+        --========================
         local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
-        local _, OnScreen = Camera:WorldToViewportPoint(Root.Position)
 
-        -- ตรวจสอบระยะและตำแหน่งบนจอ
-        if Distance > MaxDistance or not OnScreen then
-            ESP.Billboard.Enabled = false
+        if Distance > MaxDistance then
+            HideESP(ESP)
             continue
         end
 
-        -- แสดงผล Name & Distance
+        --========================
+        -- VIEWPORT
+        --========================
+        local RootPos, OnScreen = Camera:WorldToViewportPoint(Root.Position)
+
+        if not OnScreen then
+            HideESP(ESP)
+            continue
+        end
+
+        local HeadPos = Camera:WorldToViewportPoint(
+            Head.Position + Vector3.new(0,0.6,0)
+        )
+
+        local LegPos = Camera:WorldToViewportPoint(
+            Root.Position - Vector3.new(0,3,0)
+        )
+
+        --========================
+        -- SCALE
+        --========================
+        local Height = math.abs(HeadPos.Y - LegPos.Y)
+        local Width = Height / 2
+
+        local X = RootPos.X - Width / 2
+        local Y = RootPos.Y - Height / 2
+
+                --========================
+        -- NAME & DISTANCE ESP
+        --========================
+                --========================
+        -- NAME & DISTANCE ESP (Format: NAME [ Distance ])
+        --========================
         if _G.NameESPEnabled or _G.DistanceESPEnabled then
             ESP.Billboard.Enabled = true
-            ESP.Billboard.Parent = Character:FindFirstChild("Head") or Root
+            ESP.Billboard.Parent = Head
             
-            local NameTag = _G.NameESPEnabled and Player.Name or ""
+            local NameTag = _G.NameESPEnabled and Player.Name or "" -- ใช้ Username
             local DistTag = _G.DistanceESPEnabled and string.format(" <font color='#AAAAAA'>[ %dm ]</font>", math.floor(Distance)) or ""
             
-            ESP.NameLabel.Text = NameTag .. DistTag
-            -- ปรับขนาดตัวอักษรตามระยะทาง (ยิ่งไกลยิ่งเล็ก)
-            ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 10, 16)
+            -- รวมข้อความ NAME [ Distance ]
+            if _G.NameESPEnabled and _G.DistanceESPEnabled then
+                ESP.NameLabel.Text = NameTag .. " " .. DistTag
+            else
+                ESP.NameLabel.Text = NameTag .. DistTag
+            end
+            
+            -- ปรับขนาดตามระยะทาง
+            ESP.NameLabel.TextSize = math.clamp(16 - (Distance / 150), 12, 16)
         else
-            ESP.Billboard.Enabled = false
+            if ESP.Billboard then ESP.Billboard.Enabled = false end
+        end
+
+
+
+
+        --========================
+        -- HEALTH BAR
+        --========================
+        if _G.HealthESPEnabled then
+
+            local HealthPercent = math.clamp(
+                Humanoid.Health / Humanoid.MaxHealth,
+                0,
+                1
+            )
+
+            local BarHeight = Height * HealthPercent
+
+            local BarX = X - 7
+            local BarY = Y
+
+            -- OUTLINE
+            ESP.HealthOutline.Visible = true
+            ESP.HealthOutline.Size = Vector2.new(
+                4,
+                Height + 2
+            )
+
+            ESP.HealthOutline.Position = Vector2.new(
+                BarX - 1,
+                BarY - 1
+            )
+
+            -- BAR
+            ESP.HealthBar.Visible = true
+            ESP.HealthBar.Size = Vector2.new(
+                2,
+                BarHeight
+            )
+
+            ESP.HealthBar.Position = Vector2.new(
+                BarX,
+                BarY + (Height - BarHeight)
+            )
+
+            -- HEALTH COLOR
+            ESP.HealthBar.Color = Color3.fromRGB(
+                255 - (255 * HealthPercent),
+                255 * HealthPercent,
+                0
+            )
+
+        else
+
+            ESP.HealthOutline.Visible = false
+            ESP.HealthBar.Visible = false
         end
     end
 end)
 
--- เริ่มทำงานกับผู้เล่นในเซิร์ฟเวอร์
-for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
-Players.PlayerAdded:Connect(CreateESP)
-Players.PlayerRemoving:Connect(RemoveESP)
-
+--========================
+-- TOGGLES
+--========================
 Tabs.ESP:AddToggle("NameESP", {
     Title = "ESP Name",
     Default = false,
-    Callback = function(v) _G.NameESPEnabled = v end
+    Callback = function(v)
+        _G.NameESPEnabled = v
+    end
+})
+
+Tabs.ESP:AddToggle("HealthESP", {
+    Title = "ESP Health",
+    Default = false,
+    Callback = function(v)
+        _G.HealthESPEnabled = v
+    end
 })
 
 Tabs.ESP:AddToggle("DistanceESP", {
     Title = "ESP Distance",
     Default = false,
-    Callback = function(v) _G.DistanceESPEnabled = v end
+    Callback = function(v)
+        _G.DistanceESPEnabled = v
+    end
 })
+
+
+
+
+
 
 -- Object
 --=========================
@@ -974,6 +1468,161 @@ Tabs.Teleport:AddToggle("spec", {
         end
     end
 })
+
+-- Teleport to Object or something
+--// 1. Variables & Mapping (อิงตามที่ปรับใช้ใน ESP)
+local lp = game.Players.LocalPlayer
+local OBJ_MAPPING = {
+    ["generator"] = "Generator", ["generators"] = "Generator", 
+    ["new generator"] = "Generator", ["new generators"] = "Generator",
+    ["hook"] = "Hook", ["hooks"] = "Hook",
+    ["gate"] = "Gate", ["gates"] = "Gate",
+    ["palletwrong"] = "Pallet", ["palletpoint"] = "Pallet"
+}
+
+--// 2. Core Helper Functions
+local function GetHRP(model)
+    return model and model:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetRole(p)
+    local team = p.Team and p.Team.Name or "None"
+    local tl = team:lower()
+    if tl:find("killer") or tl:find("murder") or tl:find("beast") then return "Killer" end
+    if tl:find("survivor") or tl:find("innocent") or tl:find("human") then return "Survivors" end
+    return "Spectator"
+end
+
+local function TeleportTo(pos)
+    local char = lp.Character
+    if char and GetHRP(char) and pos then
+        char:PivotTo(pos)
+    end
+end
+
+--// 3. Optimized Logic: ค้นหาวัตถุที่ใกล้ที่สุด (ป้องกัน Gate มั่ว)
+local function GetNearestObject(targetType)
+    local nearest = nil
+    local minDist = math.huge
+    local hrp = GetHRP(lp.Character)
+    if not hrp then return nil end
+    local myPos = hrp.Position
+
+    for _, v in ipairs(workspace:GetDescendants()) do
+        local name = v.Name:lower()
+        local mappedName = OBJ_MAPPING[name]
+        
+        if mappedName == targetType then
+            -- Logic: ข้าม Generator ที่ซ่อมเสร็จแล้ว
+            if targetType == "Generator" then
+                local progress = v:GetAttribute("RepairProgress") or v:GetAttribute("ProgressRepair") or 0
+                if progress >= 100 then continue end
+            end
+
+            -- Logic: สำหรับ Gate (เน้นเฉพาะตัวที่มีความสูงหรือขนาดใหญ่พอสมควร เพื่อเลี่ยง Part ตกแต่งมั่วๆ)
+            if targetType == "Gate" and v:IsA("BasePart") and v.Transparency == 1 and not v.CanCollide then
+                continue -- ข้าม Barrier ล่องหน
+            end
+            
+            local success, targetCFrame = pcall(function() return v:GetPivot() end)
+            if success and targetCFrame then
+                local dist = (myPos - targetCFrame.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    nearest = targetCFrame
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+--// 4. Teleport Buttons (Tabs.Teleport)
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Generator",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Generator")
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Gate",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Gate")
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Pallet",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Pallet")
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Hook",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Hook")
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Killer",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        for _, v in ipairs(game.Players:GetPlayers()) do
+            if v ~= lp and GetRole(v) == "Killer" then
+                local targetHRP = GetHRP(v.Character)
+                if targetHRP then
+                    TeleportTo(targetHRP.CFrame * CFrame.new(0, 0, 3))
+                    break
+                end
+            end
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Low Health Player",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        for _, v in ipairs(game.Players:GetPlayers()) do
+            if v ~= lp and v.Character and v.Character:FindFirstChild("Humanoid") then
+                local hum = v.Character.Humanoid
+                if hum.Health > 0 and hum.Health < (hum.MaxHealth * 0.9) then
+                    local targetHRP = GetHRP(v.Character)
+                    if targetHRP then
+                        TeleportTo(targetHRP.CFrame * CFrame.new(0, 0, 3))
+                        break
+                    end
+                end
+            end
+        end
+    end
+})
+
+
+
+
+
+
+
 
 ---------------
 
