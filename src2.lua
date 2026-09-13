@@ -1,4 +1,4 @@
--- 13
+-- 1
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -1469,7 +1469,7 @@ Tabs.Teleport:AddToggle("spec", {
 })
 
 -- Teleport to Object or something
---// 1. Variables & Mapping (Essential)
+--// 1. Variables & Mapping (อิงตามที่ปรับใช้ใน ESP)
 local lp = game.Players.LocalPlayer
 local OBJ_MAPPING = {
     ["generator"] = "Generator", ["generators"] = "Generator", 
@@ -1479,7 +1479,7 @@ local OBJ_MAPPING = {
     ["palletwrong"] = "Pallet", ["palletpoint"] = "Pallet"
 }
 
---// 2. Helper Functions (Essential)
+--// 2. Core Helper Functions
 local function GetHRP(model)
     return model and model:FindFirstChild("HumanoidRootPart")
 end
@@ -1494,12 +1494,12 @@ end
 
 local function TeleportTo(pos)
     local char = lp.Character
-    local hrp = GetHRP(char)
-    if char and hrp and pos then
+    if char and GetHRP(char) and pos then
         char:PivotTo(pos)
     end
 end
 
+--// 3. Optimized Logic: ค้นหาวัตถุที่ใกล้ที่สุด (ป้องกัน Gate มั่ว)
 local function GetNearestObject(targetType)
     local nearest = nil
     local minDist = math.huge
@@ -1508,32 +1508,43 @@ local function GetNearestObject(targetType)
     local myPos = hrp.Position
 
     for _, v in ipairs(workspace:GetDescendants()) do
-        local mappedName = OBJ_MAPPING[v.Name:lower()]
+        local name = v.Name:lower()
+        local mappedName = OBJ_MAPPING[name]
+        
         if mappedName == targetType then
-            -- Logic พิเศษสำหรับ Generator (ถ้าซ่อมเสร็จ 100% ให้ข้าม)
+            -- Logic: ข้าม Generator ที่ซ่อมเสร็จแล้ว
             if targetType == "Generator" then
                 local progress = v:GetAttribute("RepairProgress") or v:GetAttribute("ProgressRepair") or 0
                 if progress >= 100 then continue end
             end
+
+            -- Logic: สำหรับ Gate (เน้นเฉพาะตัวที่มีความสูงหรือขนาดใหญ่พอสมควร เพื่อเลี่ยง Part ตกแต่งมั่วๆ)
+            if targetType == "Gate" and v:IsA("BasePart") and v.Transparency == 1 and not v.CanCollide then
+                continue -- ข้าม Barrier ล่องหน
+            end
             
-            local pos = v:GetPivot().Position
-            local dist = (myPos - pos).Magnitude
-            if dist < minDist then
-                minDist = dist
-                nearest = v:GetPivot()
+            local success, targetCFrame = pcall(function() return v:GetPivot() end)
+            if success and targetCFrame then
+                local dist = (myPos - targetCFrame.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    nearest = targetCFrame
+                end
             end
         end
     end
     return nearest
 end
 
---// 3. Teleport Buttons (Using Tabs.Teleport)
+--// 4. Teleport Buttons (Tabs.Teleport)
 Tabs.Teleport:AddButton({
     Title = "Teleport to Generator",
     Callback = function()
         if GetRole(lp) == "Spectator" then return end
         local target = GetNearestObject("Generator")
-        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
     end
 })
 
@@ -1542,16 +1553,9 @@ Tabs.Teleport:AddButton({
     Callback = function()
         if GetRole(lp) == "Spectator" then return end
         local target = GetNearestObject("Gate")
-        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "Teleport to Hook",
-    Callback = function()
-        if GetRole(lp) == "Spectator" then return end
-        local target = GetNearestObject("Hook")
-        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
     end
 })
 
@@ -1560,7 +1564,20 @@ Tabs.Teleport:AddButton({
     Callback = function()
         if GetRole(lp) == "Spectator" then return end
         local target = GetNearestObject("Pallet")
-        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Hook",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Hook")
+        if target then 
+            TeleportTo(target * CFrame.new(0, 3, 0)) 
+        end
     end
 })
 
@@ -1570,8 +1587,9 @@ Tabs.Teleport:AddButton({
         if GetRole(lp) == "Spectator" then return end
         for _, v in ipairs(game.Players:GetPlayers()) do
             if v ~= lp and GetRole(v) == "Killer" then
-                if v.Character and GetHRP(v.Character) then
-                    TeleportTo(GetHRP(v.Character).CFrame * CFrame.new(0, 0, 3))
+                local targetHRP = GetHRP(v.Character)
+                if targetHRP then
+                    TeleportTo(targetHRP.CFrame * CFrame.new(0, 0, 3))
                     break
                 end
             end
@@ -1587,13 +1605,17 @@ Tabs.Teleport:AddButton({
             if v ~= lp and v.Character and v.Character:FindFirstChild("Humanoid") then
                 local hum = v.Character.Humanoid
                 if hum.Health > 0 and hum.Health < (hum.MaxHealth * 0.9) then
-                    TeleportTo(GetHRP(v.Character).CFrame * CFrame.new(0, 0, 3))
-                    break
+                    local targetHRP = GetHRP(v.Character)
+                    if targetHRP then
+                        TeleportTo(targetHRP.CFrame * CFrame.new(0, 0, 3))
+                        break
+                    end
                 end
             end
         end
     end
 })
+
 
 
 
