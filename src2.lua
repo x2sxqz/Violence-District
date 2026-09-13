@@ -1469,81 +1469,47 @@ Tabs.Teleport:AddToggle("spec", {
 })
 
 -- Teleport to Object or something
-local function GetRole(p)
-    local team = p.Team and p.Team.Name or "None"
-    local tl = team:lower()
-    if tl:find("killer") or tl:find("murder") or tl:find("beast") or tl:find("the") then 
-        return "Killer" 
-    end
-    return "Survivor"
-end
-
-local function GetHRP(model)
-    return model and model:FindFirstChild("HumanoidRootPart")
-end
-
-local function TeleportTo(pos)
-    if lp.Character and GetHRP(lp.Character) then
-        lp.Character:PivotTo(pos)
-    end
-end
-
---// 1. Teleport to Generator
+--// UI Buttons (Teleport Tab)
 Tabs.Teleport:AddButton({
     Title = "Teleport to Generator",
-    Description = "",
     Callback = function()
-        local target = nil
-        local minDist = math.huge
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v.Name == "Generator" or v:FindFirstChild("GeneratorMesh") then
-                local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                if part then
-                    local dist = (GetHRP(lp.Character).Position - part.Position).Magnitude
-                    if dist < minDist then
-                        minDist = dist
-                        target = part.CFrame * CFrame.new(0, 3, 0)
-                    end
-                end
-            end
-        end
-        if target then TeleportTo(target) end
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Generator")
+        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
     end
 })
 
---// 2. Teleport to Gate
 Tabs.Teleport:AddButton({
     Title = "Teleport to Gate",
-    Description = "",
     Callback = function()
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v.Name:find("Gate") or v.Name:find("Exit") then
-                TeleportTo(v:GetPivot() * CFrame.new(0, 3, 0))
-                break
-            end
-        end
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Gate")
+        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
     end
 })
 
---// 3. Teleport to Hook
 Tabs.Teleport:AddButton({
     Title = "Teleport to Hook",
-    Description = "",
     Callback = function()
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v.Name:find("Hook") and v:IsA("Model") then
-                TeleportTo(v:GetPivot() * CFrame.new(0, 3, 0))
-                break
-            end
-        end
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Hook")
+        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
     end
 })
 
---// 4. Teleport to Killer (Updated Logic)
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Pallet",
+    Callback = function()
+        if GetRole(lp) == "Spectator" then return end
+        local target = GetNearestObject("Pallet")
+        if target then TeleportTo(target * CFrame.new(0, 3, 0)) end
+    end
+})
+
 Tabs.Teleport:AddButton({
     Title = "Teleport to Killer",
-    Description = "",
     Callback = function()
+        if GetRole(lp) == "Spectator" then return end
         for _, v in ipairs(game.Players:GetPlayers()) do
             if v ~= lp and GetRole(v) == "Killer" then
                 if v.Character and GetHRP(v.Character) then
@@ -1555,11 +1521,10 @@ Tabs.Teleport:AddButton({
     end
 })
 
---// 5. Teleport to Low Health Player (< 90%)
 Tabs.Teleport:AddButton({
     Title = "Teleport to Low Health Player",
-    Description = "",
     Callback = function()
+        if GetRole(lp) == "Spectator" then return end
         for _, v in ipairs(game.Players:GetPlayers()) do
             if v ~= lp and v.Character and v.Character:FindFirstChild("Humanoid") then
                 local hum = v.Character.Humanoid
@@ -1571,6 +1536,7 @@ Tabs.Teleport:AddButton({
         end
     end
 })
+
 
 
 
