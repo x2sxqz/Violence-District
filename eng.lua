@@ -1,4 +1,4 @@
--- 1
+-- 3
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -671,8 +671,7 @@ end)
 
 -- walkspeed limit
 Tabs.Player:AddInput("WSV", {
-    Title = "Speed Value",
-    Description = "Limit 40",
+    Title = "Speed Value (Limit 40)",
     Default = "16",
     Callback = function(v)
         WSValue = math.clamp(tonumber(v) or 16, 1, 40)
@@ -1443,10 +1442,8 @@ Tabs.Teleport:AddToggle("tp", {
     end
 })
 
-
 -- Teleport to Object or something
---// 1. Variables & Mapping (อิงตามที่ปรับใช้ใน ESP)
-local lp = game.Players.LocalPlayer
+--// 1. Variables & Mapping
 local OBJ_MAPPING = {
     ["generator"] = "Generator", ["generators"] = "Generator", 
     ["new generator"] = "Generator", ["new generators"] = "Generator",
@@ -1475,7 +1472,7 @@ local function TeleportTo(pos)
     end
 end
 
---// 3. Optimized Logic: ค้นหาวัตถุที่ใกล้ที่สุด (ป้องกัน Gate มั่ว)
+--// 3. Optimized Logic: ค้นหาวัตถุที่ใกล้ที่สุด (เพิ่มระบบกรองป้องกันวาร์ปไปหาคน)
 local function GetNearestObject(targetType)
     local nearest = nil
     local minDist = math.huge
@@ -1488,15 +1485,27 @@ local function GetNearestObject(targetType)
         local mappedName = OBJ_MAPPING[name]
         
         if mappedName == targetType then
-            -- Logic: ข้าม Generator ที่ซ่อมเสร็จแล้ว
+            --// [จุดแก้ไข] ตรวจสอบว่าไม่ใช่ส่วนประกอบของตัวละครผู้เล่น หรือ Tool
+            local model = v:FindFirstAncestorOfClass("Model")
+            if model and game.Players:GetPlayerFromCharacter(model) then 
+                continue 
+            end
+            if v:FindFirstAncestorOfClass("Tool") or v:IsA("Tool") then
+                continue
+            end
+
+            -- Logic: สำหรับ Generator (ข้ามตัวที่ซ่อมเสร็จแล้ว)
             if targetType == "Generator" then
                 local progress = v:GetAttribute("RepairProgress") or v:GetAttribute("ProgressRepair") or 0
                 if progress >= 100 then continue end
             end
 
-            -- Logic: สำหรับ Gate (เน้นเฉพาะตัวที่มีความสูงหรือขนาดใหญ่พอสมควร เพื่อเลี่ยง Part ตกแต่งมั่วๆ)
-            if targetType == "Gate" and v:IsA("BasePart") and v.Transparency == 1 and not v.CanCollide then
-                continue -- ข้าม Barrier ล่องหน
+            -- Logic: สำหรับ Gate (กรอง Barrier และเช็คขนาดเพื่อให้เจอประตูจริงๆ)
+            if targetType == "Gate" then
+                if v:IsA("BasePart") then
+                    if v.Transparency > 0.8 or not v.CanCollide then continue end -- ข้าม Barrier ล่องหน
+                    if v.Size.Magnitude < 5 then continue end -- ข้าม Part เล็กๆ ที่ไม่ใช่ประตู
+                end
             end
             
             local success, targetCFrame = pcall(function() return v:GetPivot() end)
@@ -1512,7 +1521,7 @@ local function GetNearestObject(targetType)
     return nearest
 end
 
---// 4. Teleport Buttons (Tabs.Teleport)
+--// 4. Teleport Buttons (ครบทุกฟังก์ชั่นเดิม)
 Tabs.Teleport:AddButton({
     Title = "Teleport to Generator",
     Callback = function()
@@ -1591,6 +1600,7 @@ Tabs.Teleport:AddButton({
         end
     end
 })
+
 
 
 
