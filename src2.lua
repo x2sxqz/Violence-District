@@ -1,4 +1,4 @@
--- 6
+-- 7
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -300,17 +300,13 @@ end)
 
 
 -- Automatic
---=========================================
--- 🔥 HYPER-X AUTO PARRY + REAPER STATUS UI [V2.4 MULTI-ORIGIN]
---=========================================
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local VIM = game:GetService("VirtualInputManager")
 local LP = Players.LocalPlayer
-local PlayerGui = LP:WaitForChild("PlayerGui")
 
 local Config = {
     Enabled = false,
@@ -353,7 +349,7 @@ local Colors = {
     TrafficGreen = Color3.fromRGB(40, 200, 64)
 }
 
--- // [ GUI BUILDER - ORIGINAL PRESERVED ]
+-- // [ GUI BUILDER ]
 if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 local Screen = Instance.new("ScreenGui", CoreGui)
 Screen.Name = GUI_NAME
@@ -421,26 +417,27 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
 
--- // [ NEW LOGIC: HYPER-X V2.4 DETECTION (MULTI-ORIGIN) ]
+-- // [ CORE LOGIC: MULTI-LEVEL DETECTION ]
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
     if not kPart then return false end
     
-    State.RayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
-    local angles = {-72.5, -60.4, -48.3, -36.25, -24.2, -12.1, 0, 12.1, 24.2, 36.25, 48.3, 60.4, 72.5}
-    
     local kCF = kPart.CFrame
-    local origins = {
-        kPart.Position, -- Center
-        (kCF * CFrame.new(-1.5, 0, 0)).Position, -- Left
-        (kCF * CFrame.new(1.5, 0, 0)).Position   -- Right
-    }
+    -- 13 Angles (Fixed)
+    local angles = {-72.5, -60.4, -48.3, -36.25, -24.2, -12.1, 0, 12.1, 24.2, 36.25, 48.3, 60.4, 72.5}
+    -- 3 Vertical Levels (Low, Middle, High)
+    local verticalOffsets = {-1.8, 0, 1.8} 
 
-    for i = 1, #origins do
-        local origin = origins[i]
+    State.RayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
+
+    for i = 1, #verticalOffsets do
+        -- สร้างจุดเริ่มจากระดับความสูงที่ต่างกัน
+        local origin = (kCF * CFrame.new(0, verticalOffsets[i], 0)).Position
+        
         for j = 1, #angles do
             local direction = (kCF * CFrame.Angles(0, math.rad(angles[j]), 0)).LookVector
             local rayResult = workspace:Raycast(origin, direction * (range + 3), State.RayParams)
+            
             if rayResult and rayResult.Instance:IsDescendantOf(victim) then
                 return true 
             end
@@ -473,16 +470,23 @@ end)
 
 local function PerformInput()
     pcall(function()
-        local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
-        if mobBtn and mobBtn.Visible then firesignal(mobBtn.MouseButton1Down)
-        else VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0); task.wait(0.01); VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) end
+        local mobBtn = LP.PlayerGui:FindFirstChild("Survivor-mob", true) and LP.PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
+        if mobBtn and mobBtn.Visible then 
+            firesignal(mobBtn.MouseButton1Down)
+        else 
+            VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.01)
+            VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0) 
+        end
     end)
 end
 
 local function AttachSensor(char)
     if not char or State.Connections[char] then return end
     local hum = char:WaitForChild("Humanoid", 10)
-    local animator = hum:WaitForChild("Animator", 10)
+    local animator = hum and hum:WaitForChild("Animator", 10)
+    if not animator then return end
+    
     State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
         if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
         local id = track.Animation.AnimationId:match("%d+")
@@ -491,10 +495,12 @@ local function AttachSensor(char)
             if myChar and myChar:GetAttribute("State") ~= "Downed" then
                 local kRoot = char.PrimaryPart; local vRoot = myChar.PrimaryPart
                 if not kRoot or not vRoot then return end
-                if (vRoot.Position - kRoot.Position).Magnitude <= Config.Distance then
+                
+                local dist = (vRoot.Position - kRoot.Position).Magnitude
+                if dist <= Config.Distance then
                     if IsThreatening(char, myChar, Config.Distance) then
                         State.Cooldown = true
-                        for i = 1, 10 do State.ParryRemote:FireServer() end
+                        for i = 1, 5 do State.ParryRemote:FireServer() end
                         PerformInput()
                     end
                 end
@@ -510,6 +516,7 @@ RangeAdorn.Height = 0.1; RangeAdorn.Transparency = 0.5
 RunService.RenderStepped:Connect(function()
     local myChar = LP.Character; local myRole = GetRole(LP)
     Main.Visible = Config.ShowStatusUI
+    
     if myChar and myChar.PrimaryPart then
         local myPos = myChar.PrimaryPart.Position; local closestDist = 999
         for _, p in pairs(Players:GetPlayers()) do
@@ -545,15 +552,14 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- // [ INITIALIZE ]
-if Tabs and Tabs.Automatic then
-    Tabs.Automatic:AddToggle("AutoParry", { Title = "Auto Parry", Default = false, Callback = function(V) Config.Enabled = V end })
-    Tabs.Automatic:AddSlider("ParryRange", { Title = "Parry Range", Default = Config.Distance, Min = 2, Max = 12, Rounding = 1, Callback = function(V) Config.Distance = tonumber(V) or 9 end })
-    Tabs.Automatic:AddToggle("ShowRange", { Title = "Show Range Circle", Default = false, Callback = function(V) Config.ShowCircle = V end })
-    Tabs.Automatic:AddToggle("ShowStatusUI", { Title = "Show Status UI", Default = false, Callback = function(V) Config.ShowStatusUI = V end })
+for _, p in pairs(Players:GetPlayers()) do 
+    if p ~= LP then 
+        p.CharacterAdded:Connect(AttachSensor)
+        if p.Character then AttachSensor(p.Character) end 
+    end 
 end
-
-for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor); if p.Character then AttachSensor(p.Character) end end end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
