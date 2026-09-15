@@ -1,4 +1,4 @@
--- 3
+-- 4
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -304,7 +304,7 @@ end)
 
 -- Automatic
 --=========================================
--- 🔥 HYPER-X AUTO PARRY + REAPER STATUS UI
+-- 🔥 HYPER-X AUTO PARRY + REAPER STATUS UI (V2.3 LOGIC INTEGRATED)
 --=========================================
 local Config = {
     Enabled = false,
@@ -318,8 +318,10 @@ local State = {
     CurrentCD = 0,
     Connections = {},
     ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parry"),
-    ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult")
+    ResultRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Items"):WaitForChild("Parrying Dagger"):WaitForChild("parryResult"),
+    RayParams = RaycastParams.new()
 }
+State.RayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local ATTACK_ANIMS = {
     ["113255068724446"] = true, ["74968262036854"] = true, ["110355011987939"] = true,
@@ -345,7 +347,7 @@ local Colors = {
     TrafficGreen = Color3.fromRGB(40, 200, 64)
 }
 
--- // [ GUI BUILDER ]
+-- // [ GUI BUILDER - ORIGINAL CODE ]
 if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 
 local Screen = Instance.new("ScreenGui")
@@ -364,8 +366,14 @@ Main.Visible = false
 Main.Parent = Screen
 
 local function ApplyStyle(obj, radius, color, thick, trans)
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, radius) c.Parent = obj
-    local s = Instance.new("UIStroke") s.Color = color s.Thickness = thick s.Transparency = trans or 0 s.Parent = obj
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = obj
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thick
+    s.Transparency = trans or 0
+    s.Parent = obj
     return s
 end
 
@@ -399,7 +407,9 @@ for i, col in ipairs(tCols) do
     d.BackgroundColor3 = col
     d.BorderSizePixel = 0
     d.Parent = Traffic
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = d
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(1, 0)
+    c.Parent = d
 end
 
 local Header = Instance.new("TextLabel")
@@ -425,8 +435,14 @@ Indicator.Size = UDim2.fromOffset(6, 6)
 Indicator.Position = UDim2.fromOffset(5, 11)
 Indicator.BackgroundColor3 = Colors.TrafficGreen
 Indicator.Parent = StatusArea
-local IndCorner = Instance.new("UICorner") IndCorner.CornerRadius = UDim.new(1, 0) IndCorner.Parent = Indicator
-local IndGlow = Instance.new("UIStroke") IndGlow.Thickness = 3 IndGlow.Color = Colors.TrafficGreen IndGlow.Transparency = 0.5 IndGlow.Parent = Indicator
+local IndCorner = Instance.new("UICorner")
+IndCorner.CornerRadius = UDim.new(1, 0)
+IndCorner.Parent = Indicator
+local IndGlow = Instance.new("UIStroke")
+IndGlow.Thickness = 3
+IndGlow.Color = Colors.TrafficGreen
+IndGlow.Transparency = 0.5
+IndGlow.Parent = Indicator
 
 local DistLabel = Instance.new("TextLabel")
 DistLabel.Size = UDim2.new(1, -20, 0, 15)
@@ -473,7 +489,25 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- // [ LOGIC HELPERS ]
+-- // [ NEW LOGIC: HYPER-X V2.3 DETECTION ]
+local function IsThreatening(killer, victim, range)
+    local kPart = killer.PrimaryPart
+    if not kPart then return false end
+    
+    State.RayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
+    local angles = {-90, -60, -30, 0, 30, 60, 90} 
+    local origin = kPart.Position
+
+    for _, angle in ipairs(angles) do
+        local direction = (kPart.CFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
+        local rayResult = workspace:Raycast(origin, direction * (range + 3), State.RayParams)
+        if rayResult and rayResult.Instance:IsDescendantOf(victim) then
+            return true 
+        end
+    end
+    return false
+end
+
 local function GetRole(p)
     local team = p.Team and p.Team.Name or "None"
     local tl = team:lower()
@@ -501,8 +535,13 @@ end)
 local function PerformInput()
     pcall(function()
         local mobBtn = PlayerGui:FindFirstChild("Survivor-mob", true) and PlayerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
-        if mobBtn and mobBtn.Visible then firesignal(mobBtn.MouseButton1Down)
-        else VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0) task.wait(0.01) VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) end
+        if mobBtn and mobBtn.Visible then 
+            firesignal(mobBtn.MouseButton1Down)
+        else 
+            VIM:SendMouseButtonEvent(0, 0, 1, true, game, 0) 
+            task.wait(0.01) 
+            VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
+        end
     end)
 end
 
@@ -512,13 +551,23 @@ local function AttachSensor(char)
     local animator = hum:WaitForChild("Animator", 10)
     State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
         if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
-        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
+        
+        local id = track.Animation.AnimationId:match("%d+")
+        if ATTACK_ANIMS[id] then
             local myChar = LP.Character
             if myChar and myChar:GetAttribute("State") ~= "Downed" then
-                if (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= Config.Distance then
-                    State.Cooldown = true
-                    for i = 1, 8 do State.ParryRemote:FireServer() end
-                    PerformInput()
+                local kRoot = char.PrimaryPart
+                local vRoot = myChar.PrimaryPart
+                if not kRoot or not vRoot then return end
+
+                local dist = (vRoot.Position - kRoot.Position).Magnitude
+                if dist <= Config.Distance then
+                    -- ใช้ระบบ 7-Ray ตรวจสอบว่า Killer โจมตีมาที่เราจริงไหม
+                    if IsThreatening(char, myChar, Config.Distance) then
+                        State.Cooldown = true
+                        for i = 1, 10 do State.ParryRemote:FireServer() end
+                        PerformInput()
+                    end
                 end
             end
         end
@@ -582,36 +631,43 @@ end)
 -- // [ INITIALIZE ]
 if Tabs and Tabs.Automatic then
     Tabs.Automatic:AddToggle("AutoParry", { 
-    Title = "Auto Parry", 
-    Default = false, Callback = function(V) 
-    Config.Enabled = V end })
+        Title = "Auto Parry", 
+        Default = false, 
+        Callback = function(V) Config.Enabled = V end 
+    })
     
     Tabs.Automatic:AddSlider("ParryRange", {
-    Title = "Parry Range",
-    Default = Config.Distance,
-    Min = 2,
-    Max = 12,
-    Rounding = 1,
-    Callback = function(V)
-        Config.Distance = tonumber(V) or 9
-    end
-})
+        Title = "Parry Range",
+        Default = Config.Distance,
+        Min = 2,
+        Max = 12,
+        Rounding = 1,
+        Callback = function(V)
+            Config.Distance = tonumber(V) or 9
+        end
+    })
     
     Tabs.Automatic:AddToggle("ShowRange", { 
-    Title = "Show Range Circle", 
-    Default = false, 
-    Callback = function(V) 
-    Config.ShowCircle = V end })
+        Title = "Show Range Circle", 
+        Default = false, 
+        Callback = function(V) Config.ShowCircle = V end 
+    })
     
     Tabs.Automatic:AddToggle("ShowStatusUI", { 
-    Title = "Show Status UI", 
-    Default = false, 
-    Callback = function(V) 
-    Config.ShowStatusUI = V end })
+        Title = "Show Status UI", 
+        Default = false, 
+        Callback = function(V) Config.ShowStatusUI = V end 
+    })
 end
 
-for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor) if p.Character then AttachSensor(p.Character) end end end
+for _, p in pairs(Players:GetPlayers()) do 
+    if p ~= LP then 
+        p.CharacterAdded:Connect(AttachSensor) 
+        if p.Character then AttachSensor(p.Character) end 
+    end 
+end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
