@@ -357,7 +357,8 @@ end
 ApplyStyle(Main, 12, Colors.Red, 1.5, 0.2)
 local MainGlow = Instance.new("UIStroke", Main); MainGlow.Color = Colors.Red; MainGlow.Thickness = 6; MainGlow.Transparency = 0.8
 
-local TopBar = Instance.new("Frame", Main); TopBar.Name = "TopBar"; TopBar.Size = UDim2.new(1, -2, 0, 26); TopBar.Position = UDim2.fromOffset(1, 1); TopBar.BackgroundColor3 = Colors.Background2; TopBar.BorderSizePixel = 0
+local TopBar = Instance.new("Frame", Main)
+TopBar.Name = "TopBar"; TopBar.Size = UDim2.new(1, -2, 0, 26); TopBar.Position = UDim2.fromOffset(1, 1); TopBar.BackgroundColor3 = Colors.Background2; TopBar.BorderSizePixel = 0
 ApplyStyle(TopBar, 11, Colors.Red, 1, 0.8)
 
 local Traffic = Instance.new("Frame", TopBar)
@@ -368,7 +369,8 @@ for i, col in ipairs(tCols) do
     d.BackgroundColor3 = col; d.BorderSizePixel = 0; Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
 end
 
-local Header = Instance.new("TextLabel", TopBar); Header.Size = UDim2.new(1, -60, 1, 0); Header.Position = UDim2.fromOffset(55, 0); Header.BackgroundTransparency = 1
+local Header = Instance.new("TextLabel", TopBar)
+Header.Size = UDim2.new(1, -60, 1, 0); Header.Position = UDim2.fromOffset(55, 0); Header.BackgroundTransparency = 1
 Header.Text = "REAPER X SYSTEM V2.4"; Header.TextColor3 = Colors.White; Header.TextTransparency = 0.4; Header.TextSize = 10; Header.Font = Enum.Font.GothamBold; Header.TextXAlignment = Enum.TextXAlignment.Left
 
 local StatusArea = Instance.new("Frame", Main); StatusArea.Size = UDim2.new(1, -20, 1, -35); StatusArea.Position = UDim2.fromOffset(10, 35); StatusArea.BackgroundTransparency = 1
@@ -392,7 +394,7 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
 
--- // [ DETECTION LOGIC: 13 ANGLES x 3 LEVELS + PITCH ]
+-- // [ DETECTION: 13 ANGLES x 3 LEVELS + PITCH ]
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
     if not kPart then return false end
@@ -400,9 +402,9 @@ local function IsThreatening(killer, victim, range)
     local kCF = kPart.CFrame
     local angles = {-72.5, -60.4, -48.3, -36.25, -24.2, -12.1, 0, 12.1, 24.2, 36.25, 48.3, 60.4, 72.5}
     local levels = {
-        {offset = -1.8, pitch = math.rad(-15)}, -- Low
-        {offset = 0,    pitch = 0},             -- Mid
-        {offset = 1.8,  pitch = math.rad(15)}   -- High (แก้ปัญหา Killer เงยหน้า)
+        {offset = -1.8, pitch = math.rad(-15)}, 
+        {offset = 0,    pitch = 0},             
+        {offset = 1.8,  pitch = math.rad(15)}   
     }
 
     State.RayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
@@ -426,6 +428,11 @@ local function GetRole(p)
     if tl:find("survivor") or tl:find("innocent") or tl:find("human") then return "Survivors" end
     return "Spectator"
 end
+
+State.ResultRemote.OnClientEvent:Connect(function(_, cd)
+    State.CurrentCD = tonumber(cd) or 0.8
+    State.Cooldown = true
+end)
 
 local function PerformInput()
     pcall(function()
@@ -457,11 +464,17 @@ local function AttachSensor(char)
     end)
 end
 
--- // [ RENDER & SYNC ]
+-- // [ RENDER LOOP: COOLDOWN & UI SYNC ]
 local RangeAdorn = Instance.new("CylinderHandleAdornment", workspace.Terrain)
 RangeAdorn.Height = 0.1; RangeAdorn.Transparency = 0.5
 
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt)
+    -- Countdown Logic (เสถียรที่สุด)
+    if State.CurrentCD > 0 then
+        State.CurrentCD = math.max(0, State.CurrentCD - dt)
+        if State.CurrentCD <= 0 then State.Cooldown = false end
+    end
+
     local myChar = LP.Character; local myRole = GetRole(LP)
     Main.Visible = Config.ShowStatusUI
     
@@ -506,13 +519,10 @@ if Tabs and Tabs.Automatic then
 end
 
 -- // [ INITIALIZE ]
-State.ResultRemote.OnClientEvent:Connect(function(_, cd)
-    State.CurrentCD = tonumber(cd) or 0.8; State.Cooldown = true
-    task.delay(State.CurrentCD, function() State.Cooldown = false; State.CurrentCD = 0 end)
-end)
-
 for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor); if p.Character then AttachSensor(p.Character) end end end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
+
 
 
 
