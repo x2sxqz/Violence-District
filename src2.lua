@@ -1,12 +1,9 @@
--- 3
---local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
+-- 4
+local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
---local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
---local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/InterfaceManager.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/InterfaceManager.lua"))()
 
-local Load = loadstring(game:HttpGet("https://reaperxsecurity.vercel.app/38Eutmo2vzGrhZp1RL"))()
-local SaveManager = loadstring(game:HttpGet("https://reaperxsecurity.vercel.app/yQiFt3LftNb3xTa2Go"))()
-local InterfaceManager = loadstring(game:HttpGet("https://reaperxsecurity.vercel.app/cCocd82HJSFgEKkXdv"))()
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -50,9 +47,7 @@ Theme = "ExtremeReaper",
 MinimizeKey = Enum.KeyCode.RightControl
 })
 
---local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/Icon.lua"))()
-local icon = loadstring(game:HttpGet("https://reaperxsecurity.vercel.app/EiYJr3l96yKjli5Pp8"))()
-
+local icon = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/Icon.lua"))()
 
 --=========================
 -- 🔥Tab
