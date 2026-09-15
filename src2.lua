@@ -1,4 +1,4 @@
--- 8
+-- 9
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -300,14 +300,6 @@ end)
 
 
 -- Automatic
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local VIM = game:GetService("VirtualInputManager")
-local LP = Players.LocalPlayer
-
 local Config = {
     Enabled = false,
     Distance = 9,
@@ -341,6 +333,7 @@ local Colors = {
     Background = Color3.fromRGB(8, 8, 10),
     Background2 = Color3.fromRGB(13, 13, 16),
     Red = Color3.fromRGB(255, 30, 50),
+    RedDark = Color3.fromRGB(100, 12, 22),
     White = Color3.fromRGB(245, 245, 247),
     Muted = Color3.fromRGB(75, 75, 83),
     TrafficRed = Color3.fromRGB(255, 95, 87),
@@ -348,29 +341,73 @@ local Colors = {
     TrafficGreen = Color3.fromRGB(40, 200, 64)
 }
 
--- // [ GUI BUILDER ]
+-- // [ ORIGINAL GUI BUILDER & DRAG SYSTEM ]
 if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 local Screen = Instance.new("ScreenGui", CoreGui); Screen.Name = GUI_NAME; Screen.IgnoreGuiInset = true
+
 local Main = Instance.new("Frame", Screen)
-Main.Name = "Main"; Main.Size = UDim2.fromOffset(260, 100); Main.Position = UDim2.fromScale(0.5, 0.4); Main.AnchorPoint = Vector2.new(0.5, 0.5); Main.BackgroundColor3 = Colors.Background; Main.BorderSizePixel = 0; Main.Visible = false
+Main.Name = "Main"; Main.Size = UDim2.fromOffset(260, 100); Main.Position = UDim2.fromScale(0.5, 0.4)
+Main.AnchorPoint = Vector2.new(0.5, 0.5); Main.BackgroundColor3 = Colors.Background; Main.BorderSizePixel = 0; Main.Visible = false
 
-local function ApplyStyle(obj, radius, color, thick)
-    Instance.new("UICorner", obj).CornerRadius = UDim.new(0, radius)
-    local s = Instance.new("UIStroke", obj); s.Color = color; s.Thickness = thick; return s
+local function ApplyStyle(obj, radius, color, thick, trans)
+    local c = Instance.new("UICorner", obj); c.CornerRadius = UDim.new(0, radius)
+    local s = Instance.new("UIStroke", obj); s.Color = color; s.Thickness = thick; s.Transparency = trans or 0
+    return s
 end
-ApplyStyle(Main, 12, Colors.Red, 1.5)
 
-local TopBar = Instance.new("Frame", Main); TopBar.Size = UDim2.new(1, -2, 0, 26); TopBar.Position = UDim2.fromOffset(1, 1); TopBar.BackgroundColor3 = Colors.Background2; TopBar.BorderSizePixel = 0
-ApplyStyle(TopBar, 11, Colors.Red, 1)
+ApplyStyle(Main, 12, Colors.Red, 1.5, 0.2)
+local MainGlow = Instance.new("UIStroke", Main); MainGlow.Color = Colors.Red; MainGlow.Thickness = 6; MainGlow.Transparency = 0.8
 
-local Header = Instance.new("TextLabel", TopBar); Header.Size = UDim2.new(1, -10, 1, 0); Header.Position = UDim2.fromOffset(10, 0); Header.BackgroundTransparency = 1; Header.Text = "REAPER X SYSTEM V2.4"; Header.TextColor3 = Colors.White; Header.TextSize = 10; Header.Font = Enum.Font.GothamBold; Header.TextXAlignment = Enum.TextXAlignment.Left
+local TopBar = Instance.new("Frame", Main)
+TopBar.Name = "TopBar"; TopBar.Size = UDim2.new(1, -2, 0, 26); TopBar.Position = UDim2.fromOffset(1, 1)
+TopBar.BackgroundColor3 = Colors.Background2; TopBar.BorderSizePixel = 0
+ApplyStyle(TopBar, 11, Colors.Red, 1, 0.8)
 
-local StatusArea = Instance.new("Frame", Main); StatusArea.Size = UDim2.new(1, -20, 1, -35); StatusArea.Position = UDim2.fromOffset(10, 35); StatusArea.BackgroundTransparency = 1
-local Indicator = Instance.new("Frame", StatusArea); Indicator.Size = UDim2.fromOffset(6, 6); Indicator.Position = UDim2.fromOffset(5, 11); Indicator.BackgroundColor3 = Colors.TrafficGreen; Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
-local DistLabel = Instance.new("TextLabel", StatusArea); DistLabel.Size = UDim2.new(1, -20, 0, 15); DistLabel.Position = UDim2.fromOffset(20, 5); DistLabel.BackgroundTransparency = 1; DistLabel.Text = "Killer Distance : N/A"; DistLabel.TextColor3 = Colors.White; DistLabel.TextSize = 12; DistLabel.Font = Enum.Font.GothamBold; DistLabel.TextXAlignment = Enum.TextXAlignment.Left
-local StatusLabel = Instance.new("TextLabel", StatusArea); StatusLabel.Size = UDim2.new(1, -20, 0, 15); StatusLabel.Position = UDim2.fromOffset(20, 23); StatusLabel.BackgroundTransparency = 1; StatusLabel.Text = "Status : READY"; StatusLabel.TextColor3 = Colors.TrafficGreen; StatusLabel.TextSize = 12; StatusLabel.Font = Enum.Font.GothamBold; StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+local Traffic = Instance.new("Frame", TopBar)
+Traffic.Size = UDim2.fromOffset(45, 10); Traffic.Position = UDim2.fromOffset(10, 8); Traffic.BackgroundTransparency = 1
+local tCols = {Colors.TrafficRed, Colors.TrafficYellow, Colors.TrafficGreen}
+for i, col in ipairs(tCols) do
+    local d = Instance.new("Frame", Traffic); d.Size = UDim2.fromOffset(7, 7); d.Position = UDim2.fromOffset((i-1)*14, 0)
+    d.BackgroundColor3 = col; d.BorderSizePixel = 0; Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+end
 
--- // [ DETECTION LOGIC: 13 ANGLES x 3 LEVELS ]
+local Header = Instance.new("TextLabel", TopBar)
+Header.Size = UDim2.new(1, -60, 1, 0); Header.Position = UDim2.fromOffset(55, 0); Header.BackgroundTransparency = 1
+Header.Text = "REAPER X SYSTEM V2.4"; Header.TextColor3 = Colors.White; Header.TextTransparency = 0.4
+Header.TextSize = 10; Header.Font = Enum.Font.GothamBold; Header.TextXAlignment = Enum.TextXAlignment.Left
+
+local StatusArea = Instance.new("Frame", Main)
+StatusArea.Size = UDim2.new(1, -20, 1, -35); StatusArea.Position = UDim2.fromOffset(10, 35); StatusArea.BackgroundTransparency = 1
+
+local Indicator = Instance.new("Frame", StatusArea)
+Indicator.Size = UDim2.fromOffset(6, 6); Indicator.Position = UDim2.fromOffset(5, 11); Indicator.BackgroundColor3 = Colors.TrafficGreen
+Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+local IndGlow = Instance.new("UIStroke", Indicator); IndGlow.Thickness = 3; IndGlow.Color = Colors.TrafficGreen; IndGlow.Transparency = 0.5
+
+local DistLabel = Instance.new("TextLabel", StatusArea)
+DistLabel.Size = UDim2.new(1, -20, 0, 15); DistLabel.Position = UDim2.fromOffset(20, 5); DistLabel.BackgroundTransparency = 1
+DistLabel.Text = "Killer Distance : N/A"; DistLabel.TextColor3 = Colors.White; DistLabel.TextSize = 12; DistLabel.Font = Enum.Font.GothamBold; DistLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local StatusLabel = Instance.new("TextLabel", StatusArea)
+StatusLabel.Size = UDim2.new(1, -20, 0, 15); StatusLabel.Position = UDim2.fromOffset(20, 23); StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status : READY"; StatusLabel.TextColor3 = Colors.TrafficGreen; StatusLabel.TextSize = 12; StatusLabel.Font = Enum.Font.GothamBold; StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- // [ DRAG LOGIC ]
+local dragging, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = input.Position; startPos = Main.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+
+-- // [ NEW DETECTION LOGIC: 13 ANGLES x 3 LEVELS ]
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
     if not kPart then return false end
@@ -394,7 +431,7 @@ local function IsThreatening(killer, victim, range)
     return false
 end
 
--- // [ HELPERS ]
+-- // [ ROLE & INPUT ]
 local function GetRole(p)
     local team = p.Team and p.Team.Name or "None"
     local tl = team:lower()
@@ -435,9 +472,9 @@ local function AttachSensor(char)
     end)
 end
 
--- // [ RENDER & UI UPDATES ]
+-- // [ RENDER & UPDATE ]
 local RangeAdorn = Instance.new("CylinderHandleAdornment", workspace.Terrain)
-RangeAdorn.Height = 0.1; RangeAdorn.Transparency = 0.5; RangeAdorn.Visible = false
+RangeAdorn.Height = 0.1; RangeAdorn.Transparency = 0.5
 
 RunService.RenderStepped:Connect(function()
     local myChar = LP.Character; local myRole = GetRole(LP)
@@ -454,7 +491,7 @@ RunService.RenderStepped:Connect(function()
             DistLabel.Text = "Killer Distance : " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
             StatusLabel.Text = State.CurrentCD > 0 and string.format("Status : CD (%.1fs)", State.CurrentCD) or "Status : READY"
             StatusLabel.TextColor3 = State.CurrentCD > 0 and Colors.TrafficYellow or Colors.TrafficGreen
-            Indicator.BackgroundColor3 = StatusLabel.TextColor3
+            Indicator.BackgroundColor3 = StatusLabel.TextColor3; IndGlow.Color = StatusLabel.TextColor3
         end
         if Config.ShowCircle and myRole == "Survivors" then
             RangeAdorn.Visible = true; RangeAdorn.Color3 = (State.CurrentCD > 0 and Colors.TrafficYellow) or (closestDist <= Config.Distance and Colors.TrafficRed) or Colors.TrafficGreen
@@ -464,7 +501,6 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- // [ TABS INTEGRATION ]
--- ส่วนนี้เชื่อมต่อกับ Library ของคุณ (ใช้ชื่อตัวแปร Tabs ตามที่คุณให้มา)
 if Tabs and Tabs.Automatic then
     Tabs.Automatic:AddToggle("AutoParry", { Title = "Auto Parry", Default = Config.Enabled, Callback = function(V) Config.Enabled = V end })
     Tabs.Automatic:AddSlider("ParryRange", { Title = "Parry Range", Default = Config.Distance, Min = 5, Max = 12, Rounding = 1, Callback = function(V) Config.Distance = tonumber(V) or 9 end })
@@ -480,6 +516,7 @@ end)
 
 for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor); if p.Character then AttachSensor(p.Character) end end end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
