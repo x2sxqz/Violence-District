@@ -1,4 +1,4 @@
--- 4
+-- 5
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -495,7 +495,7 @@ local function IsThreatening(killer, victim, range)
     if not kPart then return false end
     
     State.RayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
-    local angles = {-90, -60, -30, 0, 30, 60, 90} 
+    local angles = {-72.5, -60.4, -48.3, -36.25, -24.2, -12.1, 0, 12.1, 24.2, 36.25, 48.3, 60.4, 72.5} 
     local origin = kPart.Position
 
     for _, angle in ipairs(angles) do
