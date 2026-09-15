@@ -1,4 +1,4 @@
--- [[ HYPER-X AUTO PARRY - PRECISION MULTI-RAY ]] --
+-- [[ HYPER-X AUTO PARRY - WIDE MULTI-RAY V2.3 ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,35 +33,37 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Updated Threat Logic (Precision Fan Detection)
+-- // Updated Threat Logic (7-Ray Wide Fan)
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
-    if not kPart or not victim.PrimaryPart then return false end
+    local vPart = victim.PrimaryPart
+    if not kPart or not vPart then return false end
 
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
     
-    -- กาง Ray 5 เส้น ออกจากด้านหน้าของ Killer เท่านั้น
-    -- ถ้าเราอยู่ข้างหลัง Ray จะยิงไม่โดนเรา -> ไม่ Parry
-    local angles = {-75, -35, 0, 35, 75} -- ปรับมุมให้กว้างขึ้นเพื่อดักการฟันข้าง
+    -- กาง Ray 7 เส้น ครอบคลุม 180 องศาด้านหน้า Killer (ซ้าย 90 ถึง ขวา 90)
+    -- ปรับมุมให้ละเอียดขึ้นเพื่อดักจับ Hitbox ของเราไม่ว่าจะหันหน้าทางไหน
+    local angles = {-90, -60, -30, 0, 30, 60, 90} 
     local origin = kPart.Position
 
     for _, angle in ipairs(angles) do
-        -- ใช้ CFrame ของ Killer เป็นหลักในการกำหนดทิศทางของ "พัด"
+        -- คำนวณทิศทางจากด้านหน้าของ Killer กระจายออกเป็นพัด
         local direction = (kPart.CFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
-        local rayResult = workspace:Raycast(origin, direction * (range + 1), rayParams)
+        
+        -- ยิง Ray โดยเพิ่มระยะ Buffer เล็กน้อย
+        local rayResult = workspace:Raycast(origin, direction * (range + 3), rayParams)
         
         if rayResult and rayResult.Instance:IsDescendantOf(victim) then
-            -- ต้องชนส่วนใดส่วนหนึ่งของร่างกายเราเท่านั้นถึงจะ Parry
-            return true 
+            return true -- Ray ชนตัวเรา (Victim)
         end
     end
     
     return false
 end
 
--- // Hybrid Input Function
+-- // Core Input
 local function PerformInput()
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -77,7 +79,7 @@ local function PerformInput()
     end)
 end
 
--- // Core Parry Logic
+-- // Parry Execution
 local function ExecuteParry()
     if State.Cooldown then return end
     State.Cooldown = true
@@ -90,7 +92,7 @@ local function ExecuteParry()
     end)
 end
 
--- Sync Cooldown
+-- Server Cooldown Sync
 State.ResultRemote.OnClientEvent:Connect(function(_, cd)
     task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
 end)
@@ -109,10 +111,14 @@ local function AttachSensor(char)
             local myChar = LocalPlayer.Character
             if not myChar or myChar:GetAttribute("State") == "Downed" then return end
             
-            local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
+            local kRoot = char.PrimaryPart
+            local vRoot = myChar.PrimaryPart
+            if not kRoot or not vRoot then return end
+
+            local dist = (vRoot.Position - kRoot.Position).Magnitude
             local maxRange = Config.Aggressive and 12 or Config.Distance
             
-            -- ตรวจสอบเงื่อนไข 3 ชั้น: อนิเมชั่น -> ระยะห่าง -> Ray ยิงโดนตัวเราจริงไหม
+            -- เงื่อนไข: ระยะถึง -> อยู่ในแนวโจมตี (Multi-Ray) -> Parry
             if dist <= maxRange then
                 if IsThreatening(char, myChar, maxRange) then
                     ExecuteParry()
@@ -124,7 +130,7 @@ end
 
 -- // GUI & Visuals
 local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
-ScreenGui.Name = "HyperX_Parry"
+ScreenGui.Name = "HyperX_V2.3"
 
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 220, 0, 195)
@@ -133,7 +139,6 @@ Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
-
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 local Stroke = Instance.new("UIStroke", Main)
 Stroke.Color = Color3.fromRGB(255, 0, 0)
@@ -141,7 +146,7 @@ Stroke.Thickness = 2
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPER-X PARRY V2.2"
+Title.Text = "HYPER-X PARRY V2.3"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.BackgroundTransparency = 1
