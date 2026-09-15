@@ -1,4 +1,4 @@
--- [[ HYPER-X AUTO PARRY - MULTI-RAY VERSION ]] --
+-- [[ HYPER-X AUTO PARRY - OMNI-DIRECTIONAL MULTI-RAY ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,26 +33,31 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Updated Threat Logic (Multi-Ray Detection)
+-- // Updated Threat Logic (Omni-Directional Multi-Ray)
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
-    if not kPart or not victim.PrimaryPart then return false end
+    local vPart = victim.PrimaryPart
+    if not kPart or not vPart then return false end
 
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
     
-    -- กวาด Ray 5 เส้นเป็นรูปพัดด้านหน้า (ครอบคลุมการฟันข้างและเฉียง)
-    local angles = {-60, -30, 0, 30, 60}
     local origin = kPart.Position
+    local directionToVictim = (vPart.Position - origin).Unit
+    
+    -- สร้าง CFrame ที่หันหน้าไปหา Victim เสมอ (ไม่สนว่า Killer หันไปทางไหน)
+    local baseCFrame = CFrame.lookAt(origin, vPart.Position)
+    
+    -- กาง Ray 5 เส้นรอบตัวเรา (เพื่อให้โดนแขน/ขา หรือส่วนที่ยื่นออกมา)
+    local angles = {-45, -20, 0, 20, 45}
 
     for _, angle in ipairs(angles) do
-        -- หมุนทิศทางตาม CFrame ของ Killer
-        local direction = (kPart.CFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
+        local direction = (baseCFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
         local rayResult = workspace:Raycast(origin, direction * (range + 2), rayParams)
         
         if rayResult and rayResult.Instance:IsDescendantOf(victim) then
-            return true
+            return true -- พบว่าวิถีโจมตีสามารถถึงตัวเราได้
         end
     end
     
@@ -93,7 +98,7 @@ State.ResultRemote.OnClientEvent:Connect(function(_, cd)
     task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
 end)
 
--- // Character Sensor (Fixed Logic Flow)
+-- // Character Sensor
 local function AttachSensor(char)
     if not char or State.Connections[char] then return end
     local hum = char:WaitForChild("Humanoid", 10)
@@ -110,7 +115,7 @@ local function AttachSensor(char)
             local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
             local maxRange = Config.Aggressive and 12 or Config.Distance
             
-            -- Logic: Animation -> In Range -> Multi-Ray Detection -> Parry
+            -- ตรวจสอบ: Animation -> ในระยะ -> วิถี Ray ถึงตัวเรา (Omni-Directional)
             if dist <= maxRange then
                 if IsThreatening(char, myChar, maxRange) then
                     ExecuteParry()
@@ -120,7 +125,7 @@ local function AttachSensor(char)
     end)
 end
 
--- // GUI Implementation
+-- // GUI & Visuals
 local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 ScreenGui.Name = "HyperX_Parry"
 
@@ -139,7 +144,7 @@ Stroke.Thickness = 2
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPER-X PARRY V2"
+Title.Text = "HYPER-X PARRY V2.1"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.BackgroundTransparency = 1
@@ -167,7 +172,6 @@ AddToggle("Auto Parry", 45, "Enabled")
 AddToggle("Aggressive Mode", 90, "Aggressive")
 AddToggle("Show Range", 135, "ShowCircle")
 
--- // Visualizer
 local RangeAdorn = Instance.new("CylinderHandleAdornment", ScreenGui)
 RangeAdorn.Height = 0.1
 RangeAdorn.Color3 = Config.CircleColor
