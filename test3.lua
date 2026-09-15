@@ -1,4 +1,4 @@
--- [[ HYPER-X AUTO PARRY - OMNI-DIRECTIONAL MULTI-RAY ]] --
+-- [[ HYPER-X AUTO PARRY - PRECISION MULTI-RAY ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,31 +33,28 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Updated Threat Logic (Omni-Directional Multi-Ray)
+-- // Updated Threat Logic (Precision Fan Detection)
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
-    local vPart = victim.PrimaryPart
-    if not kPart or not vPart then return false end
+    if not kPart or not victim.PrimaryPart then return false end
 
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
     
+    -- กาง Ray 5 เส้น ออกจากด้านหน้าของ Killer เท่านั้น
+    -- ถ้าเราอยู่ข้างหลัง Ray จะยิงไม่โดนเรา -> ไม่ Parry
+    local angles = {-75, -35, 0, 35, 75} -- ปรับมุมให้กว้างขึ้นเพื่อดักการฟันข้าง
     local origin = kPart.Position
-    local directionToVictim = (vPart.Position - origin).Unit
-    
-    -- สร้าง CFrame ที่หันหน้าไปหา Victim เสมอ (ไม่สนว่า Killer หันไปทางไหน)
-    local baseCFrame = CFrame.lookAt(origin, vPart.Position)
-    
-    -- กาง Ray 5 เส้นรอบตัวเรา (เพื่อให้โดนแขน/ขา หรือส่วนที่ยื่นออกมา)
-    local angles = {-45, -20, 0, 20, 45}
 
     for _, angle in ipairs(angles) do
-        local direction = (baseCFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
-        local rayResult = workspace:Raycast(origin, direction * (range + 2), rayParams)
+        -- ใช้ CFrame ของ Killer เป็นหลักในการกำหนดทิศทางของ "พัด"
+        local direction = (kPart.CFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
+        local rayResult = workspace:Raycast(origin, direction * (range + 1), rayParams)
         
         if rayResult and rayResult.Instance:IsDescendantOf(victim) then
-            return true -- พบว่าวิถีโจมตีสามารถถึงตัวเราได้
+            -- ต้องชนส่วนใดส่วนหนึ่งของร่างกายเราเท่านั้นถึงจะ Parry
+            return true 
         end
     end
     
@@ -93,7 +90,7 @@ local function ExecuteParry()
     end)
 end
 
--- Server Cooldown Sync
+-- Sync Cooldown
 State.ResultRemote.OnClientEvent:Connect(function(_, cd)
     task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
 end)
@@ -115,7 +112,7 @@ local function AttachSensor(char)
             local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
             local maxRange = Config.Aggressive and 12 or Config.Distance
             
-            -- ตรวจสอบ: Animation -> ในระยะ -> วิถี Ray ถึงตัวเรา (Omni-Directional)
+            -- ตรวจสอบเงื่อนไข 3 ชั้น: อนิเมชั่น -> ระยะห่าง -> Ray ยิงโดนตัวเราจริงไหม
             if dist <= maxRange then
                 if IsThreatening(char, myChar, maxRange) then
                     ExecuteParry()
@@ -144,7 +141,7 @@ Stroke.Thickness = 2
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HYPER-X PARRY V2.1"
+Title.Text = "HYPER-X PARRY V2.2"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.BackgroundTransparency = 1
