@@ -1,4 +1,4 @@
--- 9
+-- 1
 local Load = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Libwtf/refs/heads/main/libload2.lua"))() 
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2sxqz/Advanced/refs/heads/main/gui/SaveManager.lua"))()
@@ -333,7 +333,6 @@ local Colors = {
     Background = Color3.fromRGB(8, 8, 10),
     Background2 = Color3.fromRGB(13, 13, 16),
     Red = Color3.fromRGB(255, 30, 50),
-    RedDark = Color3.fromRGB(100, 12, 22),
     White = Color3.fromRGB(245, 245, 247),
     Muted = Color3.fromRGB(75, 75, 83),
     TrafficRed = Color3.fromRGB(255, 95, 87),
@@ -341,7 +340,7 @@ local Colors = {
     TrafficGreen = Color3.fromRGB(40, 200, 64)
 }
 
--- // [ ORIGINAL GUI BUILDER & DRAG SYSTEM ]
+-- // [ GUI BUILDER ]
 if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 local Screen = Instance.new("ScreenGui", CoreGui); Screen.Name = GUI_NAME; Screen.IgnoreGuiInset = true
 
@@ -358,9 +357,7 @@ end
 ApplyStyle(Main, 12, Colors.Red, 1.5, 0.2)
 local MainGlow = Instance.new("UIStroke", Main); MainGlow.Color = Colors.Red; MainGlow.Thickness = 6; MainGlow.Transparency = 0.8
 
-local TopBar = Instance.new("Frame", Main)
-TopBar.Name = "TopBar"; TopBar.Size = UDim2.new(1, -2, 0, 26); TopBar.Position = UDim2.fromOffset(1, 1)
-TopBar.BackgroundColor3 = Colors.Background2; TopBar.BorderSizePixel = 0
+local TopBar = Instance.new("Frame", Main); TopBar.Name = "TopBar"; TopBar.Size = UDim2.new(1, -2, 0, 26); TopBar.Position = UDim2.fromOffset(1, 1); TopBar.BackgroundColor3 = Colors.Background2; TopBar.BorderSizePixel = 0
 ApplyStyle(TopBar, 11, Colors.Red, 1, 0.8)
 
 local Traffic = Instance.new("Frame", TopBar)
@@ -371,28 +368,16 @@ for i, col in ipairs(tCols) do
     d.BackgroundColor3 = col; d.BorderSizePixel = 0; Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
 end
 
-local Header = Instance.new("TextLabel", TopBar)
-Header.Size = UDim2.new(1, -60, 1, 0); Header.Position = UDim2.fromOffset(55, 0); Header.BackgroundTransparency = 1
-Header.Text = "REAPER X SYSTEM V2.4"; Header.TextColor3 = Colors.White; Header.TextTransparency = 0.4
-Header.TextSize = 10; Header.Font = Enum.Font.GothamBold; Header.TextXAlignment = Enum.TextXAlignment.Left
+local Header = Instance.new("TextLabel", TopBar); Header.Size = UDim2.new(1, -60, 1, 0); Header.Position = UDim2.fromOffset(55, 0); Header.BackgroundTransparency = 1
+Header.Text = "REAPER X SYSTEM V2.4"; Header.TextColor3 = Colors.White; Header.TextTransparency = 0.4; Header.TextSize = 10; Header.Font = Enum.Font.GothamBold; Header.TextXAlignment = Enum.TextXAlignment.Left
 
-local StatusArea = Instance.new("Frame", Main)
-StatusArea.Size = UDim2.new(1, -20, 1, -35); StatusArea.Position = UDim2.fromOffset(10, 35); StatusArea.BackgroundTransparency = 1
-
-local Indicator = Instance.new("Frame", StatusArea)
-Indicator.Size = UDim2.fromOffset(6, 6); Indicator.Position = UDim2.fromOffset(5, 11); Indicator.BackgroundColor3 = Colors.TrafficGreen
-Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+local StatusArea = Instance.new("Frame", Main); StatusArea.Size = UDim2.new(1, -20, 1, -35); StatusArea.Position = UDim2.fromOffset(10, 35); StatusArea.BackgroundTransparency = 1
+local Indicator = Instance.new("Frame", StatusArea); Indicator.Size = UDim2.fromOffset(6, 6); Indicator.Position = UDim2.fromOffset(5, 11); Indicator.BackgroundColor3 = Colors.TrafficGreen; Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
 local IndGlow = Instance.new("UIStroke", Indicator); IndGlow.Thickness = 3; IndGlow.Color = Colors.TrafficGreen; IndGlow.Transparency = 0.5
+local DistLabel = Instance.new("TextLabel", StatusArea); DistLabel.Size = UDim2.new(1, -20, 0, 15); DistLabel.Position = UDim2.fromOffset(20, 5); DistLabel.BackgroundTransparency = 1; DistLabel.Text = "Killer Distance : N/A"; DistLabel.TextColor3 = Colors.White; DistLabel.TextSize = 12; DistLabel.Font = Enum.Font.GothamBold; DistLabel.TextXAlignment = Enum.TextXAlignment.Left
+local StatusLabel = Instance.new("TextLabel", StatusArea); StatusLabel.Size = UDim2.new(1, -20, 0, 15); StatusLabel.Position = UDim2.fromOffset(20, 23); StatusLabel.BackgroundTransparency = 1; StatusLabel.Text = "Status : READY"; StatusLabel.TextColor3 = Colors.TrafficGreen; StatusLabel.TextSize = 12; StatusLabel.Font = Enum.Font.GothamBold; StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-local DistLabel = Instance.new("TextLabel", StatusArea)
-DistLabel.Size = UDim2.new(1, -20, 0, 15); DistLabel.Position = UDim2.fromOffset(20, 5); DistLabel.BackgroundTransparency = 1
-DistLabel.Text = "Killer Distance : N/A"; DistLabel.TextColor3 = Colors.White; DistLabel.TextSize = 12; DistLabel.Font = Enum.Font.GothamBold; DistLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local StatusLabel = Instance.new("TextLabel", StatusArea)
-StatusLabel.Size = UDim2.new(1, -20, 0, 15); StatusLabel.Position = UDim2.fromOffset(20, 23); StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Status : READY"; StatusLabel.TextColor3 = Colors.TrafficGreen; StatusLabel.TextSize = 12; StatusLabel.Font = Enum.Font.GothamBold; StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-
--- // [ DRAG LOGIC ]
+-- // [ DRAG SYSTEM ]
 local dragging, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -407,31 +392,33 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
 
--- // [ NEW DETECTION LOGIC: 13 ANGLES x 3 LEVELS ]
+-- // [ DETECTION LOGIC: 13 ANGLES x 3 LEVELS + PITCH ]
 local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
     if not kPart then return false end
     
     local kCF = kPart.CFrame
     local angles = {-72.5, -60.4, -48.3, -36.25, -24.2, -12.1, 0, 12.1, 24.2, 36.25, 48.3, 60.4, 72.5}
-    local verticalOffsets = {-1.8, 0, 1.8} -- ต่ำ, กลาง, สูง
+    local levels = {
+        {offset = -1.8, pitch = math.rad(-15)}, -- Low
+        {offset = 0,    pitch = 0},             -- Mid
+        {offset = 1.8,  pitch = math.rad(15)}   -- High (แก้ปัญหา Killer เงยหน้า)
+    }
 
     State.RayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
 
-    for i = 1, #verticalOffsets do
-        local origin = (kCF * CFrame.new(0, verticalOffsets[i], 0)).Position
+    for i = 1, #levels do
+        local origin = (kCF * CFrame.new(0, levels[i].offset, 0)).Position
         for j = 1, #angles do
-            local direction = (kCF * CFrame.Angles(0, math.rad(angles[j]), 0)).LookVector
+            local direction = (kCF * CFrame.Angles(levels[i].pitch, math.rad(angles[j]), 0)).LookVector
             local rayResult = workspace:Raycast(origin, direction * (range + 3), State.RayParams)
-            if rayResult and rayResult.Instance:IsDescendantOf(victim) then
-                return true 
-            end
+            if rayResult and rayResult.Instance:IsDescendantOf(victim) then return true end
         end
     end
     return false
 end
 
--- // [ ROLE & INPUT ]
+-- // [ CORE LOGIC ]
 local function GetRole(p)
     local team = p.Team and p.Team.Name or "None"
     local tl = team:lower()
@@ -448,15 +435,13 @@ local function PerformInput()
     end)
 end
 
--- // [ SENSOR ]
 local function AttachSensor(char)
     if not char or State.Connections[char] then return end
     local hum = char:WaitForChild("Humanoid", 10)
     local animator = hum:WaitForChild("Animator", 10)
     State.Connections[char] = animator.AnimationPlayed:Connect(function(track)
         if not Config.Enabled or State.Cooldown or GetRole(LP) ~= "Survivors" then return end
-        local id = track.Animation.AnimationId:match("%d+")
-        if ATTACK_ANIMS[id] then
+        if ATTACK_ANIMS[track.Animation.AnimationId:match("%d+")] then
             local myChar = LP.Character
             if myChar and myChar:GetAttribute("State") ~= "Downed" then
                 local kRoot = char.PrimaryPart; local vRoot = myChar.PrimaryPart
@@ -472,13 +457,14 @@ local function AttachSensor(char)
     end)
 end
 
--- // [ RENDER & UPDATE ]
+-- // [ RENDER & SYNC ]
 local RangeAdorn = Instance.new("CylinderHandleAdornment", workspace.Terrain)
 RangeAdorn.Height = 0.1; RangeAdorn.Transparency = 0.5
 
 RunService.RenderStepped:Connect(function()
     local myChar = LP.Character; local myRole = GetRole(LP)
     Main.Visible = Config.ShowStatusUI
+    
     if myChar and myChar.PrimaryPart then
         local myPos = myChar.PrimaryPart.Position; local closestDist = 999
         for _, p in pairs(Players:GetPlayers()) do
@@ -487,12 +473,23 @@ RunService.RenderStepped:Connect(function()
                 if d < closestDist then closestDist = d end
             end
         end
+
         if Config.ShowStatusUI then
-            DistLabel.Text = "Killer Distance : " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
-            StatusLabel.Text = State.CurrentCD > 0 and string.format("Status : CD (%.1fs)", State.CurrentCD) or "Status : READY"
-            StatusLabel.TextColor3 = State.CurrentCD > 0 and Colors.TrafficYellow or Colors.TrafficGreen
-            Indicator.BackgroundColor3 = StatusLabel.TextColor3; IndGlow.Color = StatusLabel.TextColor3
+            if myRole ~= "Survivors" then
+                DistLabel.Text = "Killer Distance : N/A"; StatusLabel.Text = "Status : N/A"
+                StatusLabel.TextColor3 = Colors.Muted; Indicator.BackgroundColor3 = Colors.Muted; IndGlow.Color = Colors.Muted
+            else
+                DistLabel.Text = "Killer Distance : " .. (closestDist == 999 and "N/A" or string.format("%.1f", closestDist))
+                if State.CurrentCD > 0 then
+                    StatusLabel.Text = string.format("Status : CD (%.1fs)", State.CurrentCD)
+                    StatusLabel.TextColor3 = Colors.TrafficYellow; Indicator.BackgroundColor3 = Colors.TrafficYellow
+                else
+                    StatusLabel.Text = "Status : READY"; StatusLabel.TextColor3 = Colors.TrafficGreen; Indicator.BackgroundColor3 = Colors.TrafficGreen
+                end
+                IndGlow.Color = Indicator.BackgroundColor3
+            end
         end
+
         if Config.ShowCircle and myRole == "Survivors" then
             RangeAdorn.Visible = true; RangeAdorn.Color3 = (State.CurrentCD > 0 and Colors.TrafficYellow) or (closestDist <= Config.Distance and Colors.TrafficRed) or Colors.TrafficGreen
             RangeAdorn.Radius = Config.Distance; RangeAdorn.InnerRadius = Config.Distance - 0.2; RangeAdorn.Adornee = workspace.Terrain; RangeAdorn.CFrame = CFrame.new(myPos - Vector3.new(0, 2.9, 0)) * CFrame.Angles(math.pi/2, 0, 0)
@@ -516,6 +513,7 @@ end)
 
 for _, p in pairs(Players:GetPlayers()) do if p ~= LP then p.CharacterAdded:Connect(AttachSensor); if p.Character then AttachSensor(p.Character) end end end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(AttachSensor) end)
+
 
 
 
