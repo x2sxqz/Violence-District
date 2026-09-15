@@ -1,4 +1,4 @@
--- [[ HYPER-X AUTO PARRY COMPLETE VERSION ]] --
+-- [[ HYPER-X AUTO PARRY - THREAT DETECTION VERSION ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,21 +33,41 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Hybrid Input Function (PC & Mobile)
+-- // Threat Logic (Direction + Raycast)
+local function IsThreatening(killer, victim)
+    local kPart = killer.PrimaryPart
+    local vPart = victim.PrimaryPart
+    if not kPart or not vPart then return false end
+
+    -- 1. Direction Check (Dot Product) - Killer ต้องหันหน้ามาทางเรา (ประมาณ 60 องศา)
+    local dirToVictim = (vPart.Position - kPart.Position).Unit
+    local lookDir = kPart.CFrame.LookVector
+    
+    if lookDir:Dot(dirToVictim) > 0.5 then 
+        -- 2. Raycast Check - ตรวจสอบว่ามีอะไรขวางไหม และเป้าหมายคือเราจริงหรือไม่
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local rayResult = workspace:Raycast(kPart.Position, dirToVictim * 15, rayParams)
+        
+        if rayResult and rayResult.Instance:IsDescendantOf(victim) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- // Hybrid Input Function
 local function PerformInput()
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
         local mobBtn = playerGui and playerGui:FindFirstChild("Survivor-mob", true) and playerGui["Survivor-mob"]:FindFirstChild("Gui-mob", true)
 
         if mobBtn and mobBtn.Visible then
-            -- Mobile: Tap at button center
-            local x = mobBtn.AbsolutePosition.X + (mobBtn.AbsoluteSize.X / 2)
-            local y = mobBtn.AbsolutePosition.Y + (mobBtn.AbsoluteSize.Y / 2)
-            VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-            task.wait(0.01)
-            VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+            firesignal(mobBtn.MouseButton1Down)
         else
-            -- PC: Mouse Right Click (MouseButton2)
             VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0)
             task.wait(0.01)
             VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
@@ -61,11 +81,9 @@ local function ExecuteParry()
     State.Cooldown = true
     
     task.spawn(function()
-        -- Fire Server 10x for maximum reliability
         for i = 1, 10 do 
             State.ParryRemote:FireServer() 
         end
-        -- Perform Physical Input
         PerformInput()
     end)
 end
@@ -75,7 +93,7 @@ State.ResultRemote.OnClientEvent:Connect(function(_, cd)
     task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
 end)
 
--- // Character Sensor
+-- // Character Sensor (Updated Logic)
 local function AttachSensor(char)
     if not char or State.Connections[char] then return end
     local hum = char:WaitForChild("Humanoid", 10)
@@ -92,14 +110,15 @@ local function AttachSensor(char)
             local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
             local maxRange = Config.Aggressive and 12 or Config.Distance
             
-            if dist <= maxRange then
+            -- Logical Upgrade: Animation + Range + Threat (Facing/Raycast)
+            if dist <= maxRange and IsThreatening(char, myChar) then
                 ExecuteParry()
             end
         end
     end)
 end
 
--- // GUI UI Implementation
+-- // GUI Implementation (No Changes)
 local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 ScreenGui.Name = "HyperX_Parry"
 
@@ -146,7 +165,7 @@ AddToggle("Auto Parry", 45, "Enabled")
 AddToggle("Aggressive Mode", 90, "Aggressive")
 AddToggle("Show Range", 135, "ShowCircle")
 
--- // Visualizer & Player Monitor
+-- // Visualizer
 local RangeAdorn = Instance.new("CylinderHandleAdornment", ScreenGui)
 RangeAdorn.Height = 0.1
 RangeAdorn.Color3 = Config.CircleColor
