@@ -1,4 +1,4 @@
--- [[ HYPER-X AUTO PARRY - THREAT DETECTION VERSION ]] --
+-- [[ HYPER-X AUTO PARRY - MULTI-RAY VERSION ]] --
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,23 +33,23 @@ local ATTACK_ANIMS = {
     ["121216847022485"] = true
 }
 
--- // Threat Logic (Direction + Raycast)
-local function IsThreatening(killer, victim)
+-- // Updated Threat Logic (Multi-Ray Detection)
+local function IsThreatening(killer, victim, range)
     local kPart = killer.PrimaryPart
-    local vPart = victim.PrimaryPart
-    if not kPart or not vPart then return false end
+    if not kPart or not victim.PrimaryPart then return false end
 
-    -- 1. Direction Check (Dot Product) - Killer ต้องหันหน้ามาทางเรา (ประมาณ 60 องศา)
-    local dirToVictim = (vPart.Position - kPart.Position).Unit
-    local lookDir = kPart.CFrame.LookVector
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
     
-    if lookDir:Dot(dirToVictim) > 0.5 then 
-        -- 2. Raycast Check - ตรวจสอบว่ามีอะไรขวางไหม และเป้าหมายคือเราจริงหรือไม่
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {killer, workspace.CurrentCamera}
-        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local rayResult = workspace:Raycast(kPart.Position, dirToVictim * 15, rayParams)
+    -- กวาด Ray 5 เส้นเป็นรูปพัดด้านหน้า (ครอบคลุมการฟันข้างและเฉียง)
+    local angles = {-60, -30, 0, 30, 60}
+    local origin = kPart.Position
+
+    for _, angle in ipairs(angles) do
+        -- หมุนทิศทางตาม CFrame ของ Killer
+        local direction = (kPart.CFrame * CFrame.Angles(0, math.rad(angle), 0)).LookVector
+        local rayResult = workspace:Raycast(origin, direction * (range + 2), rayParams)
         
         if rayResult and rayResult.Instance:IsDescendantOf(victim) then
             return true
@@ -93,7 +93,7 @@ State.ResultRemote.OnClientEvent:Connect(function(_, cd)
     task.delay(tonumber(cd) or 0.8, function() State.Cooldown = false end)
 end)
 
--- // Character Sensor (Updated Logic)
+-- // Character Sensor (Fixed Logic Flow)
 local function AttachSensor(char)
     if not char or State.Connections[char] then return end
     local hum = char:WaitForChild("Humanoid", 10)
@@ -110,15 +110,17 @@ local function AttachSensor(char)
             local dist = (myChar.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude
             local maxRange = Config.Aggressive and 12 or Config.Distance
             
-            -- Logical Upgrade: Animation + Range + Threat (Facing/Raycast)
-            if dist <= maxRange and IsThreatening(char, myChar) then
-                ExecuteParry()
+            -- Logic: Animation -> In Range -> Multi-Ray Detection -> Parry
+            if dist <= maxRange then
+                if IsThreatening(char, myChar, maxRange) then
+                    ExecuteParry()
+                end
             end
         end
     end)
 end
 
--- // GUI Implementation (No Changes)
+-- // GUI Implementation
 local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 ScreenGui.Name = "HyperX_Parry"
 
